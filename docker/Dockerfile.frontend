@@ -1,0 +1,15 @@
+FROM node:20-alpine
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml ./
+COPY packages ./packages
+ARG APP
+ARG PORT=3000
+COPY apps/${APP} ./apps/${APP}
+RUN pnpm install
+RUN pnpm --filter @hermes/ui-shared build && pnpm --filter @hermes/${APP} build
+ENV PORT=${PORT}
+ENV NODE_ENV=production
+WORKDIR /app/apps/${APP}
+EXPOSE ${PORT}
+CMD ["pnpm", "start"]

@@ -1,0 +1,25 @@
+{
+  "name": "nl-hermes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "灵析 (LingAnalytics) — 智能数据透视平台",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean && rm -rf node_modules"
+  },
+  "dependencies": {
+    "knex": "^3.1.0",
+    "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

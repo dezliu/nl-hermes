@@ -1,0 +1,18 @@
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /app
+
+FROM base AS builder
+COPY . .
+ARG APP_NAME
+RUN pnpm install && pnpm --filter @hermes/ui-shared build && pnpm --filter @hermes/${APP_NAME} build
+
+FROM base AS runner
+ENV NODE_ENV=production
+ARG APP_NAME
+ARG APP_PORT=3000
+COPY --from=builder /app/apps/${APP_NAME}/.next/standalone ./
+COPY --from=builder /app/apps/${APP_NAME}/.next/static ./apps/${APP_NAME}/.next/static
+COPY --from=builder /app/apps/${APP_NAME}/public ./apps/${APP_NAME}/public
+EXPOSE ${APP_PORT}
+CMD node apps/${APP_NAME}/server.js
