@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵析 · 监控看板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --surface: #1E293B;
+      --surface-2: #334155;
+      --border: #334155;
+      --text: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --cyan: #06B6D4;
+      --purple: #8B5CF6;
+      --green: #10B981;
+      --yellow: #FBBF24;
+      --red: #EF4444;
+      --brand-blue: #3B82F6;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Alert banner */
+    .alert-banner {
+      background: linear-gradient(90deg, rgba(239,68,68,0.15) 0%, rgba(139,92,246,0.1) 100%);
+      border-bottom: 1px solid rgba(239,68,68,0.3);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: alertGlow 3s ease-in-out infinite;
+    }
+
+    @keyframes alertGlow {
+      0%, 100% { border-bottom-color: rgba(239,68,68,0.3); }
+      50% { border-bottom-color: rgba(239,68,68,0.6); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .alert-banner { animation: none; }
+    }
+
+    .alert-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(239,68,68,0.2);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--red);
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .alert-text { flex: 1; }
+    .alert-text strong { color: var(--red); font-weight: 600; }
+    .alert-text span { color: var(--text-secondary); font-size: 12px; }
+
+    .alert-action {
+      padding: 6px 14px;
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 6px;
+      color: #FCA5A5;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    /* Header */
+    .header {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-mark {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .header-title { font-size: 16px; font-weight: 600; }
+    .header-sub { font-size: 11px; color: var(--text-secondary); }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .live-dot {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .live-dot::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .live-dot::before { animation: none; }
+    }
+
+    .refresh-btn {
+      padding: 6px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* Main dashboard */
+    .dashboard { flex: 1; padding: 20px 24px; overflow-y: auto; }
+
+    /* KPI Row */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+
+    .kpi-card.cyan::before { background: var(--cyan); }
+    .kpi-card.purple::before { background: var(--purple); }
+    .kpi-card.green::before { background: var(--green); }
+    .kpi-card.yellow::before { background: var(--yellow); }
+
+    .kpi-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .kpi-card.cyan .kpi-value { color: var(--cyan); }
+    .kpi-card.purple .kpi-value { color: var(--purple); }
+    .kpi-card.green .kpi-value { color: var(--green); }
+    .kpi-card.yellow .kpi-value { color: var(--yellow); }
+
+    .kpi-delta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .kpi-delta.up { color: var(--green); }
+    .kpi-delta.down { color: var(--red); }
+
+    /* Charts grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .chart-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .chart-panel.span-2 { grid-column: span 2; }
+
+    .chart-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chart-title { font-size: 13px; font-weight: 600; }
+    .chart-subtitle { font-size: 11px; color: var(--text-secondary); }
+
+    .time-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .time-tab {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border: 1px solid transparent;
+      font-family: inherit;
+      background: transparent;
+    }
+
+    .time-tab.active {
+      background: rgba(6,182,212,0.15);
+      color: var(--cyan);
+      border-color: rgba(6,182,212,0.3);
+    }
+
+    .chart-body { padding: 18px; }
+
+    /* SVG charts */
+    .chart-svg { width: 100%; height: auto; display: block; }
+
+    /* Donut legend */
+    .donut-row { display: flex; align-items: center; gap: 24px; }
+    .donut-svg { flex-shrink: 0; }
+    .legend { list-style: none; flex: 1; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 12px;
+    }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .legend-val { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+    /* Log panel */
+    .log-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .log-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+    .log-table th {
+      text-align: left;
+      padding: 8px 18px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: rgba(0,0,0,0.2);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .log-table td {
+      padding: 10px 18px;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+
+    .log-table tr:hover td { background: rgba(6,182,212,0.05); }
+
+    .log-level {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .log-level.warn { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .log-level.info { background: rgba(6,182,212,0.15); color: var(--cyan); }
+    .log-level.err { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 10px 24px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--surface);
+    }
+
+    .site-footer strong { color: var(--text); font-weight: 500; }
+
+    @media (max-width: 1100px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-panel.span-2 { grid-column: span 1; }
+    }
+
+    @media (max-width: 600px) {
+      .kpi-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Retrieval quality alert -->
+  <div class="alert-banner">
+    <div class="alert-icon">⚠</div>
+    <div class="alert-text">
+      <strong>检索质量预警</strong> — 近 1 小时低相似度评分占比 <span class="mono">18.4%</span>，超过阈值 15%。
+      受影响最多业务域：<span class="mono">订单域</span>。
+      <span>建议：检查元数据同义词 · 运行离线评估</span>
+    </div>
+    <button class="alert-action">查看告警详情 →</button>
+  </div>
+
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-mark">灵</div>
+      <div>
+        <div class="header-title">灵析 · 监控看板</div>
+        <div class="header-sub">NL Hermes Operations Center</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="live-dot">实时</span>
+      <span class="mono">更新于 2026-07-01 14:35:22</span>
+      <button class="refresh-btn">↻ 刷新</button>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <!-- KPI Cards -->
+    <div class="kpi-row">
+      <div class="kpi-card cyan">
+        <div class="kpi-label">查询重复率 · 24h</div>
+        <div class="kpi-value">34.2%</div>
+        <div class="kpi-delta up">▲ +2.1% 较昨日</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">Token 消耗 · 今日</div>
+        <div class="kpi-value">1.28M</div>
+        <div class="kpi-delta down">▼ -8.3% 较昨日</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">用户满意度 · 30d</div>
+        <div class="kpi-value">87.6%</div>
+        <div class="kpi-delta up">▲ +1.2pp</div>
+      </div>
+      <div class="kpi-card yellow">
+        <div class="kpi-label">活跃提问 · 24h</div>
+        <div class="kpi-value">1,847</div>
+        <div class="kpi-delta up">▲ +12.4%</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <!-- Cache hit rate line chart -->
+      <div class="chart-panel span-2">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">查询重复率趋势</div>
+            <div class="chart-subtitle">近 24 小时 · 按小时粒度 · 相同或高度相似问题占比</div>
+          </div>
+          <span class="mono" style="color:var(--cyan);font-size:12px;">24H FIXED</span>
+        </div>
+        <div class="chart-body">
+          <svg class="chart-svg" viewBox="0 0 800 180" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- Grid -->
+            <line x1="40" y1="20" x2="40" y2="150" stroke="#334155" stroke-width="1"/>
+            <line x1="40" y1="150" x2="780" y2="150" stroke="#334155" stroke-width="1"/>
+            <line x1="40" y1="110" x2="780" y2="110" stroke="#334155" stroke-width="0.5" stroke-dasharray="4"/>
+            <line x1="40" y1="70" x2="780" y2="70" stroke="#334155" stroke-width="0.5" stroke-dasharray="4"/>
+            <line x1="40" y1="30" x2="780" y2="30" stroke="#334155" stroke-width="0.5" stroke-dasharray="4"/>
+            <!-- Labels -->
+            <text x="8" y="154" fill="#64748B" font-size="10" font-family="JetBrains Mono">20%</text>
+            <text x="8" y="114" fill="#64748B" font-size="10" font-family="JetBrains Mono">30%</text>
+            <text x="8" y="74" fill="#64748B" font-size="10" font-family="JetBrains Mono">40%</text>
+            <!-- Area + Line -->
+            <path d="M40,120 L110,105 L180,95 L250,88 L320,92 L390,78 L460,85 L530,72 L600,68 L670,75 L740,62 L780,58 L780,150 L40,150 Z" fill="url(#areaGrad)"/>
+            <polyline points="40,120 110,105 180,95 250,88 320,92 390,78 460,85 530,72 600,68 670,75 740,62 780,58" fill="none" stroke="#06B6D4" stroke-width="2.5"/>
+            <!-- Data points -->
+            <circle cx="780" cy="58" r="4" fill="#06B6D4"/>
+            <circle cx="780" cy="58" r="8" fill="#06B6D4" opacity="0.3"/>
+            <!-- X labels -->
+            <text x="40" y="168" fill="#64748B" font-size="9" font-family="JetBrains Mono">00:00</text>
+            <text x="220" y="168" fill="#64748B" font-size="9" font-family="JetBrains Mono">06:00</text>
+            <text x="400" y="168" fill="#64748B" font-size="9" font-family="JetBrains Mono">12:00</text>
+            <text x="580" y="168" fill="#64748B" font-size="9" font-family="JetBrains Mono">18:00</text>
+            <text x="760" y="168" fill="#64748B" font-size="9" font-family="JetBrains Mono">now</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Token consumption -->
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Token 消耗统计</div>
+            <div class="chart-subtitle">日均 892K · 区间总计 6.24M</div>
+          </div>
+          <div class="time-tabs">
+            <button class="time-tab active">近 7 天</button>
+            <button class="time-tab">近 30 天</button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <svg class="chart-svg" viewBox="0 0 360 160" preserveAspectRatio="none">
+            <line x1="30" y1="10" x2="30" y2="130" stroke="#334155"/>
+            <line x1="30" y1="130" x2="350" y2="130" stroke="#334155"/>
+            <rect x="45" y="70" width="32" height="60" rx="3" fill="#8B5CF6" opacity="0.8"/>
+            <rect x="90" y="55" width="32" height="75" rx="3" fill="#8B5CF6" opacity="0.8"/>
+            <rect x="135" y="45" width="32" height="85" rx="3" fill="#8B5CF6" opacity="0.8"/>
+            <rect x="180" y="60" width="32" height="70" rx="3" fill="#8B5CF6" opacity="0.8"/>
+            <rect x="225" y="40" width="32" height="90" rx="3" fill="#8B5CF6" opacity="0.8"/>
+            <rect x="270" y="50" width="32" height="80" rx="3" fill="#8B5CF6" opacity="0.8"/>
+            <rect x="315" y="35" width="32" height="95" rx="3" fill="#8B5CF6"/>
+            <text x="50" y="148" fill="#64748B" font-size="9" font-family="JetBrains Mono">06-25</text>
+            <text x="140" y="148" fill="#64748B" font-size="9" font-family="JetBrains Mono">06-27</text>
+            <text x="230" y="148" fill="#64748B" font-size="9" font-family="JetBrains Mono">06-29</text>
+            <text x="320" y="148" fill="#64748B" font-size="9" font-family="JetBrains Mono">07-01</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- User satisfaction -->
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">用户满意度</div>
+            <div class="chart-subtitle">近 30 天 · 可按模式筛选</div>
+          </div>
+          <div class="time-tabs">
+            <button class="time-tab active">全部</button>
+            <button class="time-tab">SQL</button>
+            <button class="time-tab">报表</button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <div class="donut-row">
+            <svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#334155" stroke-width="16"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#10B981" stroke-width="16"
+                stroke-dasharray="264 88" stroke-dashoffset="66" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#EF4444" stroke-width="16"
+                stroke-dasharray="44 308" stroke-dashoffset="-198" transform="rotate(-90 60 60)"/>
+              <text x="60" y="56" text-anchor="middle" fill="#F1F5F9" font-size="18" font-weight="700" font-family="JetBrains Mono">87.6%</text>
+              <text x="60" y="72" text-anchor="middle" fill="#64748B" font-size="9">满意度</text>
+            </svg>
+            <ul class="legend">
+              <li class="legend-item">
+                <span class="legend-dot" style="background:#10B981"></span>
+                点赞
+                <span class="legend-val" style="color:#10B981">2,341</span>
+              </li>
+              <li class="legend-item">
+                <span class="legend-dot" style="background:#EF4444"></span>
+                点踩
+                <span class="legend-val" style="color:#EF4444">331</span>
+              </li>
+              <li class="legend-item">
+                <span class="legend-dot" style="background:#64748B"></span>
+                总反馈
+                <span class="legend-val">2,672</span>
+              </li>
+            </ul>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">点踩 Top 原因</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <span style="padding:3px 8px;background:rgba(139,92,246,0.15);color:#C4B5FD;border-radius:4px;font-size:11px;">数据不准确</span>
+              <span style="padding:3px 8px;background:rgba(139,92,246,0.15);color:#C4B5FD;border-radius:4px;font-size:11px;">图表类型不对</span>
+              <span style="padding:3px 8px;background:rgba(139,92,246,0.15);color:#C4B5FD;border-radius:4px;font-size:11px;">响应太慢</span>
+              <span style="padding:3px 8px;background:rgba(139,92,246,0.15);color:#C4B5FD;border-radius:4px;font-size:11px;">字段理解错误</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="log-panel">
+      <div class="log-header">
+        <div>
+          <div class="chart-title">系统事件日志</div>
+          <div class="chart-subtitle">与管理后台告警同源 · 最近 20 条</div>
+        </div>
+        <span class="mono" style="color:var(--text-secondary);font-size:11px;">LIVE STREAM</span>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>级别</th>
+            <th>事件类型</th>
+            <th>摘要</th>
+            <th>关联对象</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>14:32:18</td>
+            <td><span class="log-level err">HIGH</span></td>
+            <td>RETRIEVAL_LOW_SCORE</td>
+            <td>低相似度占比 18.4% 超阈值</td>
+            <td>订单域</td>
+          </tr>
+          <tr>
+            <td>14:28:05</td>
+            <td><span class="log-level warn">MID</span></td>
+            <td>ROW_LIMIT_EXCEEDED</td>
+            <td>查询结果 12,847 行超上限 5,000</td>
+            <td>user: li_yewu</td>
+          </tr>
+          <tr>
+            <td>14:15:42</td>
+            <td><span class="log-level info">INFO</span></td>
+            <td>CACHE_HIT</td>
+            <td>缓存命中 · 相似度 0.96</td>
+            <td>session: s_8f2a</td>
+          </tr>
+          <tr>
+            <td>13:58:11</td>
+            <td><span class="log-level err">HIGH</span></td>
+            <td>DATASOURCE_CONN_FAIL</td>
+            <td>连接失败 · 地址不可达</td>
+            <td>wms_db</td>
+          </tr>
+          <tr>
+            <td>13:42:33</td>
+            <td><span class="log-level info">INFO</span></td>
+            <td>FEEDBACK_RECEIVED</td>
+            <td>用户点赞 · 报表模式</td>
+            <td>template: 华东区月度销售额</td>
+          </tr>
+          <tr>
+            <td>13:30:00</td>
+            <td><span class="log-level warn">MID</span></td>
+            <td>TEMPLATE_MATCH_FAIL</td>
+            <td>模板匹配失败率 22% 超基线</td>
+            <td>report_templates</td>
+          </tr>
+          <tr>
+            <td>12:15:08</td>
+            <td><span class="log-level info">INFO</span></td>
+            <td>OFFLINE_EVAL_DONE</td>
+            <td>评估完成 · 命中率 86%</td>
+            <td>eval_set: 基础评估集 v3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <strong>© 2026 NL Hermes</strong> · 灵析智能数据透视平台
+  </footer>
+</body>
+</html>

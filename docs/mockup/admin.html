@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵析 · 管理后台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar: #1E293B;
+      --sidebar-hover: #334155;
+      --sidebar-active: #3B82F6;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --text-secondary: #64748B;
+      --primary: #3B82F6;
+      --primary-light: #EFF6FF;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --brand: #3B82F6;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .layout { display: flex; flex: 1; min-height: 0; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px;
+      background: var(--sidebar);
+      color: #CBD5E1;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      padding: 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--primary) 0%, #6366F1 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .brand-text { font-size: 14px; font-weight: 600; color: #F1F5F9; }
+    .brand-sub { font-size: 10px; color: #94A3B8; font-weight: 400; }
+
+    .nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+
+    .nav-section {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748B;
+      padding: 12px 12px 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #CBD5E1;
+      text-decoration: none;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .nav-item:hover { background: var(--sidebar-hover); color: #F1F5F9; }
+    .nav-item.active { background: rgba(59,130,246,0.15); color: #93C5FD; }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      background: var(--primary);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .nav-icon { width: 18px; text-align: center; opacity: 0.7; font-size: 14px; }
+
+    .badge {
+      margin-left: auto;
+      background: var(--danger);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: #64748B;
+    }
+
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #E2E8F0;
+    }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .breadcrumb { font-size: 12px; color: var(--text-secondary); }
+    .breadcrumb span { color: var(--text); font-weight: 500; }
+
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: #2563EB; }
+
+    .content { flex: 1; padding: 20px 24px; overflow-y: auto; }
+
+    .page-header { margin-bottom: 20px; }
+    .page-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .page-desc { font-size: 12px; color: var(--text-secondary); }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+    .stat-meta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    .stat-meta.up { color: var(--success); }
+    .stat-meta.down { color: var(--danger); }
+
+    /* Panels */
+    .panel-grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title { font-size: 13px; font-weight: 600; }
+
+    .panel-body { padding: 0; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+    th {
+      text-align: left;
+      padding: 8px 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: #F1F5F9;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #F8FAFC; }
+
+    .status-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .status-dot.ok::before { background: var(--success); }
+    .status-dot.warn::before { background: var(--warning); }
+    .status-dot.err::before { background: var(--danger); }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .tag-blue { background: var(--primary-light); color: #1D4ED8; }
+    .tag-green { background: #ECFDF5; color: #047857; }
+    .tag-gray { background: #F1F5F9; color: #475569; }
+    .tag-orange { background: #FFF7ED; color: #C2410C; }
+
+    .link { color: var(--primary); text-decoration: none; font-weight: 500; cursor: pointer; }
+    .link:hover { text-decoration: underline; }
+
+    /* Alerts panel */
+    .alert-list { list-style: none; }
+
+    .alert-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .alert-item:last-child { border-bottom: none; }
+
+    .alert-level {
+      width: 4px;
+      align-self: stretch;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .alert-level.high { background: var(--danger); }
+    .alert-level.mid { background: var(--warning); }
+    .alert-level.low { background: var(--primary); }
+
+    .alert-content { flex: 1; min-width: 0; }
+    .alert-title { font-weight: 500; font-size: 12px; margin-bottom: 2px; }
+    .alert-meta { font-size: 11px; color: var(--text-secondary); }
+
+    /* Form preview */
+    .form-preview { padding: 16px; }
+    .form-row { margin-bottom: 12px; }
+    .form-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+    .form-input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #FAFAFA;
+    }
+
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 16px; }
+    .tab {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Footer */
+    .site-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 24px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .site-footer strong { color: var(--text); font-weight: 500; }
+
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .panel-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">灵</div>
+        <div>
+          <div class="brand-text">灵析 LingAnalytics</div>
+          <div class="brand-sub">管理后台</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <div class="nav-section">数据层</div>
+        <a class="nav-item active" href="#">
+          <span class="nav-icon">⬡</span>
+          数据源管理
+        </a>
+        <div class="nav-section">智能配置</div>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">◈</span>
+          系统 Prompt
+        </a>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">⌘</span>
+          SQL 模板
+        </a>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">▤</span>
+          报表模板
+        </a>
+        <div class="nav-section">质量保障</div>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">◎</span>
+          向量检索测试
+        </a>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">◷</span>
+          离线评估
+        </a>
+        <div class="nav-section">系统</div>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">⚙</span>
+          系统设置
+        </a>
+        <a class="nav-item" href="#">
+          <span class="nav-icon">⚠</span>
+          告警信息
+          <span class="badge">3</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar">张</div>
+          <div>
+            <div style="color:#E2E8F0;font-size:12px;">张管理员</div>
+            <div style="font-size:10px;">数据管理员</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="breadcrumb">管理后台 / <span>数据源管理</span></div>
+        <div class="topbar-actions">
+          <button class="btn">同步全部</button>
+          <button class="btn btn-primary">+ 新增数据源</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="page-header">
+          <h1 class="page-title">数据源与智能查询库</h1>
+          <p class="page-desc">接入业务数据库、同步表元数据，维护业务语义并纳入智能查询库</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">已接入数据源</div>
+            <div class="stat-value">4</div>
+            <div class="stat-meta">3 连接正常 · 1 异常</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">智能查询库表数</div>
+            <div class="stat-value">128</div>
+            <div class="stat-meta up">↑ 12 较上周</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">模板库条目</div>
+            <div class="stat-value">47</div>
+            <div class="stat-meta">SQL 28 · 报表 19</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">最近评估命中率</div>
+            <div class="stat-value">86%</div>
+            <div class="stat-meta">2026-06-28 离线评估</div>
+          </div>
+        </div>
+
+        <div class="panel-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">数据源列表</span>
+              <input type="search" placeholder="搜索数据源…" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:160px;">
+            </div>
+            <div class="tabs">
+              <div class="tab active">全部</div>
+              <div class="tab">已纳入查询库</div>
+              <div class="tab">连接异常</div>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr>
+                    <th>数据源名称</th>
+                    <th>目标库</th>
+                    <th>表数 / 字段数</th>
+                    <th>查询库</th>
+                    <th>最近同步</th>
+                    <th>状态</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>电商订单库</strong></td>
+                    <td>order_db</td>
+                    <td>42 / 386</td>
+                    <td><span class="tag tag-green">38 表已纳入</span></td>
+                    <td>今天 09:14</td>
+                    <td><span class="status-dot ok">正常</span></td>
+                    <td><a class="link">详情</a></td>
+                  </tr>
+                  <tr>
+                    <td><strong>用户中心库</strong></td>
+                    <td>user_db</td>
+                    <td>18 / 142</td>
+                    <td><span class="tag tag-green">15 表已纳入</span></td>
+                    <td>昨天 22:30</td>
+                    <td><span class="status-dot ok">正常</span></td>
+                    <td><a class="link">详情</a></td>
+                  </tr>
+                  <tr>
+                    <td><strong>财务结算库</strong></td>
+                    <td>finance_db</td>
+                    <td>24 / 198</td>
+                    <td><span class="tag tag-blue">12 表已纳入</span></td>
+                    <td>今天 06:00</td>
+                    <td><span class="status-dot ok">正常</span></td>
+                    <td><a class="link">详情</a></td>
+                  </tr>
+                  <tr>
+                    <td><strong>仓储物流库</strong></td>
+                    <td>wms_db</td>
+                    <td>— / —</td>
+                    <td><span class="tag tag-gray">未同步</span></td>
+                    <td>—</td>
+                    <td><span class="status-dot err">连接失败</span></td>
+                    <td><a class="link">修复</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">待处理告警</span>
+                <a class="link" style="font-size:11px;">查看全部</a>
+              </div>
+              <ul class="alert-list">
+                <li class="alert-item">
+                  <div class="alert-level high"></div>
+                  <div class="alert-content">
+                    <div class="alert-title">仓储物流库连接失败</div>
+                    <div class="alert-meta">高 · 10 分钟前 · 地址不可达</div>
+                  </div>
+                </li>
+                <li class="alert-item">
+                  <div class="alert-level mid"></div>
+                  <div class="alert-content">
+                    <div class="alert-title">检索低分集中 — 订单域</div>
+                    <div class="alert-meta">中 · 2 小时前 · 低相似度占比 18%</div>
+                  </div>
+                </li>
+                <li class="alert-item">
+                  <div class="alert-level low"></div>
+                  <div class="alert-content">
+                    <div class="alert-title">返回行数超限频发</div>
+                    <div class="alert-meta">低 · 今天 08:00 · 近 1h 内 5 次</div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">连接配置预览</span>
+              </div>
+              <div class="form-preview">
+                <div class="form-row">
+                  <label class="form-label">连接地址</label>
+                  <input class="form-input" value="mysql://10.0.12.88:3306/order_db" readonly>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">访问账号</label>
+                  <input class="form-input" value="readonly_user" readonly>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">最近测试</label>
+                  <input class="form-input" value="2026-07-01 09:14:22 — 连接成功" readonly>
+                </div>
+                <div class="form-actions">
+                  <button class="btn">测试连接</button>
+                  <button class="btn btn-primary">同步元数据</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Secondary section: metadata & templates snapshot -->
+        <div class="panel" style="margin-top:16px;">
+          <div class="panel-header">
+            <span class="panel-title">表元数据维护 — orders 订单表</span>
+            <span class="tag tag-orange">手动 + 同步</span>
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead>
+                <tr>
+                  <th>物理字段</th>
+                  <th>业务中文名</th>
+                  <th>同义词</th>
+                  <th>智能查询库</th>
+                  <th>来源</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>order_id</code></td>
+                  <td>订单唯一标识</td>
+                  <td><span class="tag tag-gray">订单号</span></td>
+                  <td><span class="tag tag-green">已纳入</span></td>
+                  <td>同步</td>
+                </tr>
+                <tr>
+                  <td><code>amount</code></td>
+                  <td>销售金额</td>
+                  <td><span class="tag tag-gray">销售额</span> <span class="tag tag-gray">GMV</span></td>
+                  <td><span class="tag tag-green">已纳入</span></td>
+                  <td>同步</td>
+                </tr>
+                <tr>
+                  <td><code>created_at</code></td>
+                  <td>下单时间</td>
+                  <td><span class="tag tag-gray">注册日期</span> <span class="tag tag-gray">创建时间</span></td>
+                  <td><span class="tag tag-green">已纳入</span></td>
+                  <td>手动</td>
+                </tr>
+                <tr>
+                  <td><code>region</code></td>
+                  <td>销售区域</td>
+                  <td><span class="tag tag-gray">地区</span> <span class="tag tag-gray">大区</span></td>
+                  <td><span class="tag tag-green">已纳入</span></td>
+                  <td>同步</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <footer class="site-footer">
+        <strong>© 2026 NL Hermes</strong> · 灵析智能数据透视平台
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵析 · 用户平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #F97316;
+      --primary-dark: #EA580C;
+      --primary-light: #FFEDD5;
+      --bg: #FFF7ED;
+      --surface: #FFFFFF;
+      --border: #FED7AA;
+      --border-light: #FFEDD5;
+      --text: #431407;
+      --text-secondary: #9A3412;
+      --text-muted: #C2410C;
+      --gray: #78716C;
+      --gray-light: #F5F5F4;
+      --success: #16A34A;
+      --brand-blue: #3B82F6;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Nav */
+    .topnav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-light);
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(249,115,22,0.06);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-mark {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary) 0%, #FB923C 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Merriweather', serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    .nav-title {
+      font-family: 'Merriweather', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .nav-subtitle { font-size: 12px; color: var(--gray); font-family: 'Inter', sans-serif; font-weight: 400; }
+
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+
+    .nav-link {
+      font-size: 14px;
+      color: var(--gray);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .nav-link.active { color: var(--primary); }
+
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* Layout */
+    .workspace {
+      flex: 1;
+      display: flex;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 32px;
+      gap: 24px;
+    }
+
+    /* History Sidebar */
+    .history-panel {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(249,115,22,0.04);
+    }
+
+    .history-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .history-header h2 {
+      font-family: 'Merriweather', serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .new-chat-btn {
+      width: 100%;
+      padding: 10px 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .new-chat-btn:hover { background: var(--primary-dark); }
+
+    .history-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+    .history-group-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 12px 12px 6px;
+    }
+
+    .history-item {
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: background 0.15s;
+    }
+
+    .history-item:hover { background: var(--bg); }
+    .history-item.active { background: var(--primary-light); border: 1px solid var(--border); }
+
+    .history-item-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .history-item-time { font-size: 12px; color: var(--gray); }
+
+    /* Chat Area */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .chat-header {
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      border: 1px solid var(--border-light);
+      border-bottom: none;
+      padding: 20px 28px;
+    }
+
+    .chat-header h1 {
+      font-family: 'Merriweather', serif;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .mode-switch {
+      display: inline-flex;
+      background: var(--gray-light);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .mode-btn {
+      padding: 8px 20px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray);
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .mode-btn.active {
+      background: var(--surface);
+      color: var(--primary-dark);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .chat-body {
+      flex: 1;
+      background: var(--surface);
+      border-left: 1px solid var(--border-light);
+      border-right: 1px solid var(--border-light);
+      padding: 24px 28px;
+      overflow-y: auto;
+      min-height: 420px;
+    }
+
+    /* Template recommendation */
+    .template-card {
+      background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .template-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--primary);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .template-content { flex: 1; }
+    .template-content h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .template-content p { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+    .template-match { font-size: 12px; color: var(--success); font-weight: 500; }
+
+    .template-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+
+    .btn-outline {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--gray);
+    }
+
+    .btn-fill {
+      padding: 8px 16px;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* Messages */
+    .message { margin-bottom: 28px; }
+    .message-user { display: flex; justify-content: flex-end; }
+    .message-user .bubble {
+      background: var(--primary);
+      color: #fff;
+      border-radius: 18px 18px 4px 18px;
+      padding: 14px 20px;
+      max-width: 75%;
+      font-size: 15px;
+    }
+
+    .message-assistant { display: flex; gap: 12px; align-items: flex-start; }
+
+    .assistant-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .assistant-content { flex: 1; max-width: 85%; }
+
+    .phase-steps {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .phase {
+      font-size: 12px;
+      color: var(--gray);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .phase.done { color: var(--success); }
+    .phase.active { color: var(--primary-dark); font-weight: 600; }
+
+    .phase-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gray-light);
+    }
+
+    .phase.done .phase-dot { background: var(--success); }
+    .phase.active .phase-dot { background: var(--primary); animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .phase.active .phase-dot { animation: none; }
+    }
+
+    .bubble-assistant {
+      background: var(--gray-light);
+      border-radius: 4px 18px 18px 18px;
+      padding: 18px 22px;
+    }
+
+    .bubble-assistant p { margin-bottom: 12px; font-size: 15px; color: var(--text); }
+
+    .chart-preview {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 12px 0;
+    }
+
+    .chart-title { font-size: 13px; font-weight: 600; color: var(--gray); margin-bottom: 12px; }
+
+    .bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 120px; padding-top: 8px; }
+
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .bar {
+      width: 100%;
+      max-width: 48px;
+      border-radius: 6px 6px 0 0;
+      background: linear-gradient(180deg, var(--primary) 0%, #FB923C 100%);
+    }
+    .bar-label { font-size: 11px; color: var(--gray); }
+
+    .feedback-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .feedback-btn {
+      background: none;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--gray);
+      font-family: inherit;
+    }
+
+    .feedback-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    .continue-hint {
+      font-size: 13px;
+      color: var(--gray);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    /* Input */
+    .chat-input-area {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: 0 0 16px 16px;
+      padding: 20px 28px 24px;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      background: var(--bg);
+      border: 2px solid var(--border-light);
+      border-radius: 14px;
+      padding: 12px 16px;
+      transition: border-color 0.15s;
+    }
+
+    .input-wrapper:focus-within { border-color: var(--primary); }
+
+    .chat-textarea {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      min-height: 24px;
+      max-height: 120px;
+      color: var(--text);
+    }
+
+    .chat-textarea::placeholder { color: var(--gray); }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover { background: var(--primary-dark); }
+
+    .input-hint { font-size: 12px; color: var(--gray); margin-top: 10px; text-align: center; }
+
+    /* Footer */
+    .site-footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 12px;
+      color: var(--gray);
+      border-top: 1px solid var(--border-light);
+      background: var(--surface);
+    }
+
+    .site-footer strong { color: var(--text-secondary); font-weight: 500; }
+
+    @media (max-width: 900px) {
+      .history-panel { display: none; }
+      .workspace { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topnav">
+    <div class="nav-brand">
+      <div class="nav-mark">灵</div>
+      <div>
+        <div class="nav-title">灵析</div>
+        <div class="nav-subtitle">用大白话，灵活取数</div>
+      </div>
+    </div>
+    <nav class="nav-links">
+      <a class="nav-link active" href="#">对话</a>
+      <a class="nav-link" href="#">模板中心</a>
+      <a class="nav-link" href="#">帮助</a>
+    </nav>
+    <div class="user-menu">
+      <span>李业务</span>
+      <div class="user-avatar">李</div>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="history-panel">
+      <div class="history-header">
+        <h2>历史会话</h2>
+        <button class="new-chat-btn">+ 新对话</button>
+      </div>
+      <div class="history-list">
+        <div class="history-group-label">今天</div>
+        <div class="history-item active">
+          <div class="history-item-title">华东区月度销售额</div>
+          <div class="history-item-time">14:32</div>
+        </div>
+        <div class="history-item">
+          <div class="history-item-title">新用户注册趋势</div>
+          <div class="history-item-time">11:08</div>
+        </div>
+        <div class="history-group-label">昨天</div>
+        <div class="history-item">
+          <div class="history-item-title">Top 10 商品销量</div>
+          <div class="history-item-time">16:45</div>
+        </div>
+        <div class="history-item">
+          <div class="history-item-title">退货率按品类统计</div>
+          <div class="history-item-time">09:20</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="chat-area">
+      <div class="chat-header">
+        <h1>有什么数据想查？</h1>
+        <div class="mode-switch">
+          <button class="mode-btn">SQL 生成模式</button>
+          <button class="mode-btn active">报表生成模式</button>
+        </div>
+      </div>
+
+      <div class="chat-body">
+        <!-- Template recommendation -->
+        <div class="template-card">
+          <div class="template-icon">📊</div>
+          <div class="template-content">
+            <h3>检测到已有相似报表模板，是否直接套用？</h3>
+            <p>华东区月度销售额 — 按区域汇总销售金额的柱状图报表</p>
+            <span class="template-match">匹配度：较高</span>
+          </div>
+          <div class="template-actions">
+            <button class="btn-outline">忽略</button>
+            <button class="btn-fill">套用模板</button>
+          </div>
+        </div>
+
+        <!-- User message -->
+        <div class="message message-user">
+          <div class="bubble">上个月华东区销售额是多少？按周看一下趋势</div>
+        </div>
+
+        <!-- Assistant response -->
+        <div class="message message-assistant">
+          <div class="assistant-avatar">✦</div>
+          <div class="assistant-content">
+            <div class="phase-steps">
+              <span class="phase done"><span class="phase-dot"></span>正在理解问题</span>
+              <span class="phase done"><span class="phase-dot"></span>正在检索相关数据表</span>
+              <span class="phase done"><span class="phase-dot"></span>正在生成结果</span>
+            </div>
+            <div class="bubble-assistant">
+              <p>已为您生成华东区 2026 年 6 月的销售趋势报表。数据来源于 <strong>orders 订单表</strong>，按周汇总 <strong>销售金额</strong>。</p>
+              <div class="chart-preview">
+                <div class="chart-title">华东区 · 2026年6月 · 周销售额（万元）</div>
+                <div class="bar-chart">
+                  <div class="bar-col"><div class="bar" style="height:60px"></div><span class="bar-label">W1</span></div>
+                  <div class="bar-col"><div class="bar" style="height:85px"></div><span class="bar-label">W2</span></div>
+                  <div class="bar-col"><div class="bar" style="height:72px"></div><span class="bar-label">W3</span></div>
+                  <div class="bar-col"><div class="bar" style="height:95px"></div><span class="bar-label">W4</span></div>
+                </div>
+              </div>
+              <p style="font-size:14px;color:var(--gray);">6 月华东区合计销售额 <strong style="color:var(--primary-dark)">1,284 万元</strong>，较 5 月上升 12.3%。</p>
+              <div class="feedback-row">
+                <span style="font-size:12px;color:var(--gray);">这次结果有帮助吗？</span>
+                <button class="feedback-btn">👍 有帮助</button>
+                <button class="feedback-btn">👎 不满意</button>
+              </div>
+              <p class="continue-hint">在此继续追问，例如「把地区换成华北」或「只要 Top 10」</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Previous interrupted example -->
+        <div class="message message-user">
+          <div class="bubble">各品类退货率对比</div>
+        </div>
+        <div class="message message-assistant">
+          <div class="assistant-avatar">✦</div>
+          <div class="assistant-content">
+            <div class="bubble-assistant" style="opacity:0.7;">
+              <p>正在检索相关数据表…</p>
+              <p style="font-size:13px;color:var(--primary-dark);font-weight:600;margin-top:8px;">⏸ 已中断</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="input-wrapper">
+          <textarea class="chat-textarea" rows="1" placeholder="用自然语言描述你想查的数据…"></textarea>
+          <button class="send-btn" title="发送">↑</button>
+        </div>
+        <p class="input-hint">按 Enter 发送 · 生成过程中可点击停止</p>
+      </div>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <strong>© 2026 NL Hermes</strong> · 灵析智能数据透视平台
+  </footer>
+</body>
+</html>
