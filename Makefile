@@ -20,13 +20,7 @@ build: ## 构建全部服务
 	pnpm build
 
 migrate: ## 执行数据库迁移
-	@echo "Running migrations..."
-	@for dir in migrations/meta migrations/chat migrations/eval; do \
-		if [ -f $$dir/knexfile.ts ]; then \
-			echo "  -> $$dir"; \
-			pnpm exec knex migrate:latest --knexfile $$dir/knexfile.ts || true; \
-		fi; \
-	done
+	pnpm migrate
 
 seed: ## 导入演示数据
 	@echo "Seed not yet implemented (Phase 2)"

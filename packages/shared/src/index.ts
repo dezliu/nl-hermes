@@ -1,3 +1,13 @@
-export { createServiceApp } from './server.js';
+export { createServiceApp, createInternalRouter, createLogger } from './server.js';
 export * from './types.js';
 export * from './constants.js';
+export { createLogger as createStructuredLogger, type Logger, type LogLevel } from './logger.js';
+export { generateTraceId, traceIdMiddleware, getTraceId, type RequestContext } from './trace.js';
+export {
+  serviceAuthMiddleware,
+  getServiceAuthHeaders,
+  withServiceAuth,
+  type ServiceAuthOptions,
+} from './auth.js';
+export { requestLoggingMiddleware } from './middleware.js';
+export { redact } from './redact.js';
