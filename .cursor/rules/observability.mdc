@@ -1,0 +1,170 @@
+---
+description: 结构化日志、traceId 传递、Langfuse 埋点与敏感信息屏蔽
+globs: "**/*.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# 可观测性规则
+
+> 用于日志、链路追踪、Langfuse AI 埋点、性能指标与敏感信息防护。
+
+**AI 决策前应首先检查本规则。**
+
+---
+
+## 必须做
+
+- 复用仓库已有 logger、tracing、metrics 工具，不另起格式
+- 每个入站请求生成或继承 `traceId`，全链路透传
+- 关键业务动作（成功与失败）记录结构化日志
+- 外部调用（DB、Redis、Qdrant、LangChain、HTTP）记录耗时与结果状态
+- Langfuse 记录 AI 调用的 model、latency、token 用量、trace 关联
+- 日志与指标使用稳定 `operation` 命名：`{domain}.{action}[.{result}]`
+- 错误日志包含 `traceId`、`error.code`（如有）、`cause` 摘要
+- 输出前审查是否含密钥、Token、完整 SQL 参数、PII
+
+## 禁止做
+
+- 使用 `console.log` 替代生产 logger（调试代码不得提交）
+- 日志中输出密码、API Key、JWT、完整信用卡号等敏感信息
+- 在 Langfuse trace 中记录未脱敏的用户 prompt（含 PII 时须脱敏）
+- 各模块自定义互不兼容的日志格式
+- 吞掉异常且不记录
+- 虚构 metrics 或 trace 数据
+- 绕过审计要求的关键操作不记日志
+
+---
+
+## 日志结构
+
+```typescript
+// ❌ 反面：非结构化、无 trace、可能泄露
+console.log('user login ok', user.email, user.passwordHash);
+logger.info(`Generate SQL for ${prompt} result: ${sql}`);
+
+// ✅ 正面：结构化字段 + traceId + 脱敏
+logger.info('report.generate.succeeded', {
+  traceId,
+  userId: user.id,
+  operation: 'report.generate',
+  durationMs: Date.now() - start,
+  metadata: { schemaCount: schemas.length, confidence: draft.confidence },
+});
+```
+
+### 推荐字段
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `traceId` | 是 | 请求链路 ID |
+| `operation` | 是 | 稳定操作名 |
+| `userId` / `tenantId` | 视场景 | 业务主体 |
+| `durationMs` | 外部调用 | 耗时 |
+| `error` | 失败时 | `{ name, message, code }` 摘要 |
+| `metadata` | 可选 | 非敏感上下文 |
+
+---
+
+## traceId 传递
+
+```typescript
+// ✅ 中间件注入 context，逐层传递
+export function createContext(req: Request): Context {
+  const traceId = req.headers['x-trace-id'] ?? generateTraceId();
+  return { traceId, user: resolveUser(req), logger: logger.child({ traceId }) };
+}
+
+// Service / Adapter 接收 traceId，不重新生成
+await vectorSearch.search(collection, vector, { traceId: ctx.traceId });
+```
+
+- GraphQL context 携带 `traceId`
+- 异步任务（队列、定时）继承来源 traceId 或建立 parentSpan
+- 前端可选传 `x-trace-id`，便于端到端关联
+
+---
+
+## Langfuse 埋点
+
+```typescript
+// ✅ AI 调用包裹 trace span
+const trace = langfuse.trace({ id: traceId, userId: user.id, name: 'report.generate' });
+const generation = trace.generation({
+  name: 'sql-generation',
+  model: config.modelName,
+  input: sanitizePrompt(input.prompt), // 脱敏后
+});
+
+try {
+  const output = await chain.invoke(input);
+  generation.end({ output: summarizeOutput(output), usage: output.usage });
+  return output;
+} catch (err) {
+  generation.end({ level: 'ERROR', statusMessage: err.message });
+  logger.error('langchain.invoke.failed', { traceId, model: config.modelName, err });
+  throw err;
+}
+```
+
+- 记录 model 名、token 用量、latency；不记录 API Key
+- Prompt 含 PII 时使用 `sanitizePrompt` 或 hash 摘要
+- 业务日志 `traceId` 与 Langfuse trace id 对齐
+
+---
+
+## 性能指标
+
+```typescript
+// ✅ 关键路径计时
+const timer = metrics.startTimer('report.generate.duration');
+try {
+  // ...
+  metrics.increment('report.generate.success');
+} catch {
+  metrics.increment('report.generate.failure');
+  throw;
+} finally {
+  timer.end();
+}
+```
+
+- 指标命名与日志 `operation` 保持一致
+- 外部依赖分别计量：`qdrant.search.duration`、`redis.get.duration`
+- 不在热路径做同步磁盘 IO 写日志
+
+---
+
+## 敏感信息屏蔽
+
+```typescript
+// ✅ 统一脱敏工具
+const REDACT_KEYS = ['password', 'token', 'apiKey', 'authorization', 'secret'];
+
+export function redact(obj: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    REDACT_KEYS.some((k) => key.toLowerCase().includes(k)) ? '[REDACTED]' : value
+  ));
+}
+
+logger.error('request.failed', { traceId, body: redact(req.body), err });
+```
+
+| 类型 | 处理方式 |
+|------|----------|
+| 密码 / Token / Key | 完全不记录 |
+| Email / 手机号 | 部分掩码或 hash |
+| 用户自然语言 prompt | Langfuse 脱敏；日志只记长度或 hash |
+| 生成 SQL | 可记录；参数值须脱敏 |
+| 堆栈 | 可记录；检查 message 不含 secrets |
+
+---
+
+## 改动检查清单
+
+影响生产行为的 PR 须确认：
+
+- [ ] 失败路径有 ERROR 日志且含 traceId
+- [ ] 新增外部调用有耗时记录
+- [ ] AI 路径有 Langfuse span
+- [ ] 无敏感信息泄露
+- [ ] 未引入与现有标准冲突的新日志格式

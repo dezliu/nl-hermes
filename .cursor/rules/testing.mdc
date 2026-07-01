@@ -1,0 +1,164 @@
+---
+description: 单元测试、集成测试、契约测试选型与 mock 策略
+globs: "**/*.{test,spec}.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# 测试策略规则
+
+> 用于单元测试、集成测试、契约测试的编写、选型与 mock 策略。
+
+**AI 决策前应首先检查本规则。**
+
+---
+
+## 必须做
+
+- 按改动风险补测试（见下表），Bug 修复优先补回归测试
+- 测试命名表达行为：`should_<结果>_when_<条件>`
+- 每个测试独立、可重复，不依赖执行顺序
+- 外部依赖（DB、Redis、Qdrant、LangChain、HTTP）在单元测试中 mock
+- 集成测试使用测试数据库或 container，测完清理数据
+- GraphQL 行为变更补充 resolver 测试或 schema 契约测试
+- 断言业务结果与用户可见行为，不只断言 mock 被调用
+- 无法补测试时在交付说明中写明原因
+
+## 禁止做
+
+- 虚构测试通过结果
+- 测试依赖生产环境或真实 API Key
+- 测试间共享可变全局状态
+- 过度 mock 导致测试只验证 mock 配置
+- 为覆盖率数字写无意义断言
+- 跳过后续 CI 会执行的测试（`skip` / `only`）提交到主分支
+- 复制粘贴大段生产代码到测试而不抽取 fixture
+
+---
+
+## 测试选型
+
+| 改动类型 | 推荐测试 | 覆盖重点 |
+|----------|----------|----------|
+| Service / UseCase 编排 | 单元测试 | 业务规则、分支、错误映射 |
+| GraphQL Resolver | 集成 / 契约测试 | 鉴权、输入校验、响应结构 |
+| Repository / 查询 | 集成测试 | SQL 正确性、事务、边界数据 |
+| Bug 修复 | 回归测试 | 复现原 bug 的最小场景 |
+| 前端组件 | 组件测试 | 交互、loading/error/empty 状态 |
+| 跨服务流程 | 端到端（少量） | 关键用户路径 |
+
+优先靠近改动层的最低足够测试，不追求全栈 E2E 覆盖每个分支。
+
+---
+
+## 单元测试示例
+
+```typescript
+// ❌ 反面：测实现细节，断言 mock 调用次数
+it('calls schemaSearch', async () => {
+  await service.generate(user, input, traceId);
+  expect(mockSearch).toHaveBeenCalledTimes(1);
+});
+
+// ✅ 正面：测行为与输出
+it('should_return_draft_when_prompt_is_valid', async () => {
+  mockSearch.mockResolvedValue([{ id: 'schema-1', score: 0.9 }]);
+  mockGenerator.mockResolvedValue({ sql: 'SELECT 1', confidence: 0.85 });
+
+  const result = await service.generate(user, { prompt: '销售额' }, traceId);
+
+  expect(result.draft.sql).toBe('SELECT 1');
+  expect(result.draft.confidence).toBeGreaterThan(0.8);
+});
+
+it('should_throw_forbidden_when_user_lacks_permission', async () => {
+  const unauthorizedUser = { ...user, permissions: [] };
+  await expect(service.generate(unauthorizedUser, input, traceId))
+    .rejects.toThrow(ForbiddenError);
+});
+```
+
+---
+
+## Mock 策略
+
+```typescript
+// ✅ 在模块边界 mock Port，不 mock 被测 Service 的内部方法
+const deps = {
+  schemaSearch: { findRelevant: vi.fn() },
+  sqlGenerator: { generate: vi.fn() },
+  audit: { recordIntent: vi.fn() },
+  logger: { info: vi.fn(), error: vi.fn() },
+};
+const service = new ReportService(deps.schemaSearch, deps.sqlGenerator, deps.audit, deps.logger);
+```
+
+| 依赖 | 单元测试 | 集成测试 |
+|------|----------|----------|
+| Repository | mock | 真实测试 DB |
+| Redis / Qdrant | mock | testcontainer 或内存替身 |
+| LangChain | mock 固定响应 | 可选 snapshot，不调用真实 LLM |
+| Logger | mock / spy | 允许真实 logger 到 stdout |
+| 时间 | `vi.useFakeTimers()` | 真实时间或可控 fixture |
+
+- Mock 数据使用 factory / fixture 文件，不散落 magic value
+- 不 mock 被测单元本身
+
+---
+
+## GraphQL 契约测试
+
+```typescript
+// ✅ 验证 schema 与 resolver 行为一致
+it('should_reject_unauthenticated_generateReport', async () => {
+  const { body } = await request(app)
+    .post('/graphql')
+    .send({ query: GENERATE_REPORT, variables: { input: { prompt: 'test' } } });
+
+  expect(body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+});
+
+it('should_match_generateReport_response_shape', async () => {
+  const { body } = await authenticatedRequest(app, user)
+    .send({ query: GENERATE_REPORT, variables: { input: validInput } });
+
+  expect(body.data.generateReport).toMatchObject({
+    draft: { sql: expect.any(String), confidence: expect.any(Number) },
+  });
+});
+```
+
+---
+
+## 集成测试
+
+- 使用独立 test database；`beforeEach` / `afterEach` 或 transaction rollback 清理
+- 迁移在测试 suite 启动时跑至最新
+- 不测第三方 SLA；只测本系统与 DB/缓存的集成契约
+- 慢测试标记 `@integration`，CI 可分 job 执行
+
+---
+
+## 前端组件测试
+
+```tsx
+// ✅ 测用户可见状态
+it('should_show_error_alert_when_query_fails', async () => {
+  mocks.useQuery.mockReturnValue({ loading: false, error: new Error('网络错误'), data: undefined });
+  render(<ReportPanel reportId="1" />);
+  expect(screen.getByRole('alert')).toHaveTextContent('网络错误');
+});
+```
+
+- 使用 `@testing-library/react`，查 role/label，不查 className 实现细节
+- Apollo 用 `MockedProvider` 提供 mock 响应
+
+---
+
+## 交付检查
+
+提交前确认：
+
+- [ ] 新逻辑有对应测试
+- [ ] 本地 `just test`（或等效命令）已通过
+- [ ] 未提交 `.only` / 临时 skip
+- [ ] 测试可读：arrange → act → assert 结构清晰

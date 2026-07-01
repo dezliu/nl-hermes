@@ -1,0 +1,160 @@
+---
+description: GraphQL Resolver、应用服务分层、外部调用与错误处理规范
+globs: "**/{graphql,resolvers,services,usecases,api}/**/*.{ts,js}"
+alwaysApply: false
+---
+
+# 后端 API 与编排规则
+
+> 用于 GraphQL Resolver、应用服务（Services/UseCases）、LangChain/Qdrant/Redis 外部调用。
+
+**AI 决策前应首先检查本规则。**
+
+---
+
+## 必须做
+
+- Resolver 保持**薄层**：鉴权 → 参数校验 → 调用 Service → 映射响应
+- 业务编排、规则校验、跨资源协调放在 **Service / UseCase** 层
+- 外部调用（LangChain、Qdrant、Redis）封装在独立 client/adapter 中，Service 通过接口依赖
+- 所有影响生产行为的路径记录结构化日志（含 traceId、操作名、耗时）
+- 错误映射为用户可理解的 GraphQL 错误，内部细节不暴露
+- 输入在边界校验（长度、格式、权限），不信任客户端
+- AI 编排结果须经权限与审计后再执行副作用（如 SQL 执行）
+
+## 禁止做
+
+- 在 Resolver 或 ORM 层编写核心业务逻辑
+- 绕过权限、审计直接调用 LangChain 工具访问数据
+- 静默吞掉异常或返回模糊错误
+- 在 Service 中直接构造 GraphQL 响应结构
+- 硬编码连接串、API Key、collection 名称（应来自配置）
+- 引入新 HTTP 框架或 ORM 替代现有栈
+- 偷改 GraphQL schema 字段语义而不更新契约测试
+
+---
+
+## Resolver 设计
+
+```typescript
+// ❌ 反面：Resolver 内业务编排 + 直接访问 ORM/AI
+const resolvers = {
+  Mutation: {
+    async generateReport(_: unknown, { prompt }: { prompt: string }, ctx: Context) {
+      const embedding = await qdrantClient.search('schemas', prompt);
+      const sql = await langchain.invoke(prompt, embedding);
+      await ctx.knex.raw(sql); // 绕过权限
+      return { sql };
+    },
+  },
+};
+
+// ✅ 正面：薄 Resolver，委托 Service
+const resolvers = {
+  Mutation: {
+    async generateReport(_: unknown, args: GenerateReportInput, ctx: Context) {
+      ctx.requireAuth();
+      const input = validateGenerateReportInput(args);
+      return ctx.reportService.generate(ctx.user, input, ctx.traceId);
+    },
+  },
+};
+```
+
+---
+
+## Service / UseCase 分层
+
+```typescript
+// ✅ Service：编排领域逻辑，不感知 GraphQL
+export class ReportService {
+  constructor(
+    private readonly schemaSearch: SchemaSearchPort,
+    private readonly sqlGenerator: SqlGeneratorPort,
+    private readonly audit: AuditPort,
+    private readonly logger: Logger,
+  ) {}
+
+  async generate(user: User, input: GenerateReportInput, traceId: string) {
+    const start = Date.now();
+    try {
+      await this.audit.recordIntent(user.id, input, traceId);
+      const schemas = await this.schemaSearch.findRelevant(input.prompt, { traceId });
+      const draft = await this.sqlGenerator.generate(input.prompt, schemas, { traceId });
+      return { draft, traceId };
+    } catch (err) {
+      this.logger.error('report.generate.failed', { traceId, userId: user.id, err });
+      throw err;
+    } finally {
+      this.logger.info('report.generate.timing', { traceId, ms: Date.now() - start });
+    }
+  }
+}
+```
+
+---
+
+## 外部调用封装
+
+```typescript
+// ❌ 反面：Service 内直接 new 客户端，难以测试与替换
+const result = await new QdrantClient({ url: process.env.QDRANT_URL }).search(...);
+
+// ✅ 正面：通过 Port + Adapter，配置注入
+export interface VectorSearchPort {
+  search(collection: string, vector: number[], opts: SearchOpts): Promise<SearchHit[]>;
+}
+
+export class QdrantVectorSearch implements VectorSearchPort {
+  constructor(private readonly client: QdrantClient, private readonly logger: Logger) {}
+  async search(collection: string, vector: number[], opts: SearchOpts) {
+    const start = Date.now();
+    try {
+      return await this.client.search(collection, { vector, ...opts });
+    } catch (err) {
+      this.logger.error('qdrant.search.failed', { collection, traceId: opts.traceId, err });
+      throw new ExternalServiceError('向量检索失败', { cause: err });
+    } finally {
+      this.logger.debug('qdrant.search.timing', { collection, ms: Date.now() - start });
+    }
+  }
+}
+```
+
+Redis 缓存：key 命名遵循 `{service}:{entity}:{id}` 约定；TTL 来自配置；缓存 miss 时回源 Service，不在 Resolver 操作缓存。
+
+---
+
+## 错误处理
+
+```typescript
+// ❌ 反面
+catch (e) { return null; }
+
+// ✅ 正面：分类错误，保留 cause，映射 GraphQL
+catch (err) {
+  if (err instanceof ValidationError) throw new UserInputError(err.message);
+  if (err instanceof ForbiddenError) throw new ForbiddenError(err.message);
+  logger.error('operation.failed', { traceId, err });
+  throw new InternalServerError('操作失败，请稍后重试');
+}
+```
+
+- 可预期业务错误使用自定义 Error 类，携带 error code
+- 不可预期错误统一记录后抛出泛化消息
+- LangChain 调用失败须记录 model、token 用量（不含 prompt 中的 PII）
+
+---
+
+## 日志最低字段
+
+每次关键操作日志应包含：
+
+| 字段 | 说明 |
+|------|------|
+| `traceId` | 请求链路标识 |
+| `operation` | 操作名，如 `report.generate` |
+| `userId` | 业务主体（如有） |
+| `durationMs` | 耗时（可选，或在 finally 中记录） |
+
+复用仓库已有 logger 工厂，不另起日志格式。

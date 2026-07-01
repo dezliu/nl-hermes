@@ -1,0 +1,162 @@
+---
+description: Objection.js 模型、迁移、查询优化与事务管理规范
+globs: "**/{models,repositories,migrations,database,db}/**/*.{ts,js,sql}"
+alwaysApply: false
+---
+
+# 数据持久化规则
+
+> 用于 Objection.js 模型定义、Knex 迁移脚本、仓储层查询与事务管理。
+
+**AI 决策前应首先检查本规则。**
+
+---
+
+## 必须做
+
+- 模型（Model）只定义表映射、关系（relationMapping）、JSON schema 校验
+- 复杂查询与持久化编排放在 **Repository** 层，不在 Resolver 或 Service 中散落 raw SQL
+- 所有 schema 变更通过**版本化迁移脚本**完成，可回滚或可安全重入
+- 多表写入使用事务；事务边界在 Repository 或 Service 层明确声明
+- 查询指定所需列，避免 `SELECT *`
+- 批量操作使用 batch insert/update，避免 N+1
+- 索引变更在迁移中显式创建，并评估锁表影响
+- 软删除、时间戳字段遵循项目已有 BaseModel 约定
+
+## 禁止做
+
+- 在 ORM 层承载业务流程编排（如"生成报表并通知用户"）
+- 未经迁移直接改生产表结构
+- 偷改已有字段语义（类型、nullable、默认值）而不做数据迁移
+- 在应用代码中拼接未参数化的 SQL（防注入）
+- 跨 Repository 隐式共享事务而不传递 `trx`
+- 删除迁移文件或修改已合并的迁移历史
+- 在 Model 钩子（`$beforeInsert` 等）中引入重量级副作用或外部调用
+
+---
+
+## 模型定义
+
+```typescript
+// ❌ 反面：Model 内业务逻辑 + 外部调用
+class ReportModel extends Model {
+  static tableName = 'reports';
+  async publish() {
+    await sendNotification(this.userId); // 副作用
+    this.status = 'published';
+    return this.$query().patch();
+  }
+}
+
+// ✅ 正面：Model 仅映射与关系
+class ReportModel extends Model {
+  static tableName = 'reports';
+
+  static jsonSchema = {
+    type: 'object',
+    required: ['title', 'createdBy'],
+    properties: {
+      id: { type: 'string' },
+      title: { type: 'string', minLength: 1, maxLength: 255 },
+      status: { type: 'string', enum: ['draft', 'published', 'archived'] },
+      createdBy: { type: 'string' },
+    },
+  };
+
+  static relationMappings = () => ({
+    creator: {
+      relation: Model.BelongsToOneRelation,
+      modelClass: UserModel,
+      join: { from: 'reports.createdBy', to: 'users.id' },
+    },
+  });
+}
+```
+
+---
+
+## Repository 与查询
+
+```typescript
+// ❌ 反面：N+1 查询
+const items = await ItemModel.query();
+for (const item of items) {
+  item.owner = await UserModel.query().findById(item.ownerId);
+}
+
+// ✅ 正面：eager loading + 列选择
+const items = await ItemModel.query()
+  .select('id', 'title', 'ownerId', 'updatedAt')
+  .withGraphFetched('owner(ownerSelect)')
+  .modifiers({ ownerSelect: (q) => q.select('id', 'name') })
+  .where('status', 'active')
+  .orderBy('updatedAt', 'desc')
+  .limit(pageSize)
+  .offset(offset);
+```
+
+```typescript
+// ❌ 反面：字符串拼接 SQL
+await Model.knex().raw(`SELECT * FROM items WHERE name = '${name}'`);
+
+// ✅ 正面：参数化查询
+await Model.query().where('name', name);
+// 或 knex.raw('... WHERE name = ?', [name])
+```
+
+---
+
+## 事务管理
+
+```typescript
+// ✅ Repository 暴露 trx 参数；Service 控制事务边界
+async createWithItems(data: CreateOrderData, trx?: Transaction) {
+  const run = async (t: Transaction) => {
+    const order = await OrderModel.query(t).insert(data.order);
+    await OrderItemModel.query(t).insert(
+      data.items.map((item) => ({ ...item, orderId: order.id })),
+    );
+    return order;
+  };
+  return trx ? run(trx) : OrderModel.transaction(run);
+}
+```
+
+- 同一业务操作的多表写入必须在同一事务内
+- 事务内避免长时间外部调用（HTTP、AI、消息队列）
+- 失败时依赖数据库回滚，不在 catch 中手动补偿除非有明确 saga 设计
+
+---
+
+## 迁移脚本
+
+```typescript
+// ✅ 迁移：明确 up/down，含索引与注释
+export async function up(knex: Knex): Promise<void> {
+  await knex.schema.createTable('reports', (t) => {
+    t.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+    t.string('title', 255).notNullable();
+    t.string('status', 32).notNullable().defaultTo('draft');
+    t.uuid('created_by').notNullable().references('id').inTable('users');
+    t.timestamps(true, true);
+    t.index(['created_by', 'status']);
+  });
+}
+
+export async function down(knex: Knex): Promise<void> {
+  await knex.schema.dropTableIfExists('reports');
+}
+```
+
+- 迁移只做 schema 变更，不塞种子数据（种子数据用独立 seed）
+- 大表加列优先 nullable → 回填 → NOT NULL，避免长时间锁表
+- 重命名列/表时提供兼容期或双写方案，并在 MR 中说明
+
+---
+
+## 数据一致性
+
+- 唯一约束在数据库层声明，不仅依赖应用校验
+- 乐观锁使用 `version` 字段或 `updatedAt` 条件更新
+- 缓存（Redis）与 DB 不一致时，以 DB 为准；写路径考虑 cache invalidation
+- 删除操作确认是否软删除；软删除查询默认过滤 `deletedAt IS NULL`

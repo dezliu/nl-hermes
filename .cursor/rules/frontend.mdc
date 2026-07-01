@@ -1,0 +1,134 @@
+---
+description: React/Next.js 前端组件、Apollo GraphQL 调用、Ant Design 使用规范
+globs: "**/*.{tsx,jsx}"
+alwaysApply: false
+---
+
+# 前端开发规则
+
+> 用于前端 UI 组件开发、页面路由、客户端状态管理与 GraphQL 数据获取。
+
+**AI 决策前应首先检查本规则。**
+
+---
+
+## 必须做
+
+- 使用函数式组件与 TypeScript；Props 类型显式定义
+- 业务数据通过 Apollo Client（`useQuery` / `useMutation` / `useLazyQuery`）获取，不绕过 GraphQL 层直接 fetch REST
+- 组件职责单一：容器组件管数据，展示组件管渲染
+- 复用 Ant Design 组件与 Design Token，保持视觉一致性
+- 加载、错误、空状态必须显式处理
+- 列表渲染使用稳定 `key`；大列表考虑虚拟滚动或分页
+- 客户端状态优先局部 `useState` / `useReducer`；跨页面共享才引入 Context 或状态库
+- 遵循 Next.js App Router 约定：`app/` 路由、`loading.tsx` / `error.tsx` 边界
+- 图片与静态资源使用 `next/image`；动态导入重组件
+
+## 禁止做
+
+- 在组件内编写业务编排逻辑（权限校验、SQL 生成、复杂计算）
+- 在 UI 层直接访问 Redis、数据库或 AI SDK
+- 硬编码 API URL、Token、环境密钥
+- 为"看起来更优雅"拆分过度或引入新状态管理框架
+- 忽略 Apollo 缓存策略导致重复请求或脏数据
+- 覆盖 Ant Design 全局样式造成维护负担
+- 在 `useEffect` 中无依赖或错误依赖引发无限循环
+
+---
+
+## 组件结构
+
+```tsx
+// ❌ 反面：组件内混杂业务编排与数据访问
+function ReportPanel({ userId }: { userId: string }) {
+  const [sql, setSql] = useState('');
+  useEffect(() => {
+    fetch('/api/generate-sql', { method: 'POST', body: JSON.stringify({ userId }) })
+      .then(r => r.json())
+      .then(d => setSql(d.sql));
+  }, [userId]);
+  return <div>{sql}</div>;
+}
+
+// ✅ 正面：GraphQL 获取 + 展示分离
+function ReportPanel({ reportId }: { reportId: string }) {
+  const { data, loading, error } = useQuery(GET_REPORT, {
+    variables: { id: reportId },
+    fetchPolicy: 'cache-and-network',
+  });
+
+  if (loading) return <Spin />;
+  if (error) return <Alert type="error" message={error.message} />;
+  if (!data?.report) return <Empty description="暂无数据" />;
+
+  return <ReportView report={data.report} />;
+}
+```
+
+---
+
+## Apollo GraphQL
+
+```tsx
+// ❌ 反面：mutation 后不更新缓存，UI 显示旧数据
+const [createItem] = useMutation(CREATE_ITEM);
+
+// ✅ 正面：明确缓存更新策略
+const [createItem, { loading }] = useMutation(CREATE_ITEM, {
+  refetchQueries: [{ query: LIST_ITEMS }],
+  // 或使用 update(cache, { data }) { ... }
+  onError: (err) => message.error(err.message),
+});
+```
+
+- Query 变量类型与 GraphQL schema 对齐
+- 错误通过 Apollo `errorPolicy` 或组件级处理，不静默吞掉
+- 避免在 render 路径触发 lazy query
+
+---
+
+## Ant Design 使用
+
+```tsx
+// ❌ 反面：内联 magic number、破坏主题
+<Button style={{ background: '#ff0000', padding: 17 }}>提交</Button>
+
+// ✅ 正面：使用组件 API 与主题 token
+<Button type="primary" loading={submitting} onClick={handleSubmit}>
+  提交
+</Button>
+```
+
+- 表单使用 `Form` + `Form.Item` 规则校验，不手写分散校验
+- 表格大数据量启用 `pagination` 或服务端分页
+- Modal / Drawer 的 `open` 状态由父组件控制
+
+---
+
+## 性能
+
+```tsx
+// ❌ 反面：每次 render 创建新对象导致子组件重渲染
+<Child config={{ page: 1, size: 20 }} />
+
+// ✅ 正面：稳定引用
+const config = useMemo(() => ({ page, size }), [page, size]);
+<Child config={config} />
+```
+
+- 仅在 profiling 证明有收益时使用 `memo` / `useMemo` / `useCallback`
+- 路由级代码分割：`dynamic(() => import('./HeavyChart'), { ssr: false })`
+- 不在客户端重复实现可在 GraphQL 层完成的聚合
+
+---
+
+## 文件组织（参考）
+
+```
+app/                    # Next.js 路由
+components/             # 可复用展示组件
+features/<domain>/      # 领域功能（hooks + 组件 + gql）
+lib/apollo/             # Apollo Client 配置
+```
+
+新增文件遵循现有目录约定；不确定时先搜索同类功能位置。
