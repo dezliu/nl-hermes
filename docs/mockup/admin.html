@@ -11,7 +11,6 @@
     :root {
       --sidebar: #1E293B;
       --sidebar-hover: #334155;
-      --sidebar-active: #3B82F6;
       --bg: #F8FAFC;
       --surface: #FFFFFF;
       --border: #E2E8F0;
@@ -22,7 +21,6 @@
       --success: #10B981;
       --warning: #F59E0B;
       --danger: #EF4444;
-      --brand: #3B82F6;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,7 +38,6 @@
 
     .layout { display: flex; flex: 1; min-height: 0; }
 
-    /* Sidebar */
     .sidebar {
       width: 220px;
       background: var(--sidebar);
@@ -59,109 +56,63 @@
     }
 
     .brand-mark {
-      width: 32px;
-      height: 32px;
+      width: 32px; height: 32px;
       background: linear-gradient(135deg, var(--primary) 0%, #6366F1 100%);
       border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px; color: #fff;
     }
 
     .brand-text { font-size: 14px; font-weight: 600; color: #F1F5F9; }
-    .brand-sub { font-size: 10px; color: #94A3B8; font-weight: 400; }
+    .brand-sub { font-size: 10px; color: #94A3B8; }
 
     .nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
 
     .nav-section {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #64748B;
-      padding: 12px 12px 6px;
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #64748B; padding: 12px 12px 6px;
     }
 
     .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #CBD5E1;
-      text-decoration: none;
-      transition: background 0.15s;
-      position: relative;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; color: #CBD5E1; border: none; background: none;
+      width: 100%; text-align: left; font-family: inherit;
+      transition: background 0.15s; position: relative;
     }
 
     .nav-item:hover { background: var(--sidebar-hover); color: #F1F5F9; }
     .nav-item.active { background: rgba(59,130,246,0.15); color: #93C5FD; }
     .nav-item.active::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 6px;
-      bottom: 6px;
-      width: 3px;
-      background: var(--primary);
-      border-radius: 0 2px 2px 0;
+      content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+      width: 3px; background: var(--primary); border-radius: 0 2px 2px 0;
     }
 
     .nav-icon { width: 18px; text-align: center; opacity: 0.7; font-size: 14px; }
 
     .badge {
-      margin-left: auto;
-      background: var(--danger);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: 10px;
-      min-width: 18px;
-      text-align: center;
+      margin-left: auto; background: var(--danger); color: #fff;
+      font-size: 10px; font-weight: 600; padding: 1px 6px;
+      border-radius: 10px; min-width: 18px; text-align: center;
     }
 
     .sidebar-footer {
-      padding: 16px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      font-size: 12px;
-      color: #64748B;
+      padding: 16px; border-top: 1px solid rgba(255,255,255,0.08);
     }
 
-    .user-chip {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .user-chip { display: flex; align-items: center; gap: 8px; }
 
     .avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: #475569;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 600;
-      color: #E2E8F0;
+      width: 28px; height: 28px; border-radius: 50%; background: #475569;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: #E2E8F0;
     }
 
-    /* Main */
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
     .topbar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
     }
 
     .breadcrumb { font-size: 12px; color: var(--text-secondary); }
@@ -170,206 +121,267 @@
     .topbar-actions { display: flex; gap: 8px; align-items: center; }
 
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-family: inherit;
     }
 
-    .btn-primary {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-    }
-
+    .btn:hover { background: #F1F5F9; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
     .btn-primary:hover { background: #2563EB; }
+    .btn-danger { background: #FEF2F2; border-color: #FECACA; color: var(--danger); }
 
     .content { flex: 1; padding: 20px 24px; overflow-y: auto; }
+
+    .view { display: none; }
+    .view.active { display: block; }
 
     .page-header { margin-bottom: 20px; }
     .page-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
     .page-desc { font-size: 12px; color: var(--text-secondary); }
 
-    /* Stats */
     .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 20px;
     }
 
     .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 16px;
     }
 
     .stat-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; margin-bottom: 6px; }
     .stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
     .stat-meta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
     .stat-meta.up { color: var(--success); }
-    .stat-meta.down { color: var(--danger); }
 
-    /* Panels */
     .panel-grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; }
+    .panel-grid-3-2 { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
 
     .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
     }
 
     .panel-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
     }
 
     .panel-title { font-size: 13px; font-weight: 600; }
-
     .panel-body { padding: 0; }
+    .panel-body-pad { padding: 16px; }
 
-    /* Table */
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
 
     th {
-      text-align: left;
-      padding: 8px 16px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      background: #F1F5F9;
+      text-align: left; padding: 8px 16px; font-weight: 600;
+      color: var(--text-secondary); background: #F1F5F9;
       border-bottom: 1px solid var(--border);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em;
     }
 
-    td {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
-    }
-
+    td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #F8FAFC; }
 
-    .status-dot {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .status-dot::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-
+    .status-dot { display: inline-flex; align-items: center; gap: 6px; }
+    .status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
     .status-dot.ok::before { background: var(--success); }
     .status-dot.warn::before { background: var(--warning); }
     .status-dot.err::before { background: var(--danger); }
 
     .tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 500;
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500;
     }
 
     .tag-blue { background: var(--primary-light); color: #1D4ED8; }
     .tag-green { background: #ECFDF5; color: #047857; }
     .tag-gray { background: #F1F5F9; color: #475569; }
     .tag-orange { background: #FFF7ED; color: #C2410C; }
+    .tag-red { background: #FEF2F2; color: #B91C1C; }
+    .tag-purple { background: #F5F3FF; color: #6D28D9; }
 
-    .link { color: var(--primary); text-decoration: none; font-weight: 500; cursor: pointer; }
+    .sim-high { background: #ECFDF5; color: #047857; }
+    .sim-mid { background: #FFFBEB; color: #B45309; }
+    .sim-low { background: #FEF2F2; color: #B91C1C; }
+
+    .link {
+      color: var(--primary); text-decoration: none; font-weight: 500;
+      cursor: pointer; background: none; border: none; font-family: inherit; font-size: inherit;
+    }
     .link:hover { text-decoration: underline; }
 
-    /* Alerts panel */
     .alert-list { list-style: none; }
 
     .alert-item {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-start;
     }
 
     .alert-item:last-child { border-bottom: none; }
-
-    .alert-level {
-      width: 4px;
-      align-self: stretch;
-      border-radius: 2px;
-      flex-shrink: 0;
-    }
-
+    .alert-level { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
     .alert-level.high { background: var(--danger); }
     .alert-level.mid { background: var(--warning); }
     .alert-level.low { background: var(--primary); }
-
-    .alert-content { flex: 1; min-width: 0; }
+    .alert-content { flex: 1; }
     .alert-title { font-weight: 500; font-size: 12px; margin-bottom: 2px; }
     .alert-meta { font-size: 11px; color: var(--text-secondary); }
 
-    /* Form preview */
-    .form-preview { padding: 16px; }
     .form-row { margin-bottom: 12px; }
     .form-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; display: block; }
-    .form-input {
-      width: 100%;
-      padding: 7px 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 12px;
-      font-family: inherit;
-      background: #FAFAFA;
+    .form-input, .form-textarea, .form-select {
+      width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 12px; font-family: inherit; background: #FAFAFA;
     }
 
-    .form-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .form-textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
+    .form-textarea.tall { min-height: 180px; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 16px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .form-preview { padding: 16px; }
+
+    .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; }
     .tab {
-      padding: 10px 14px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
+      padding: 10px 14px; font-size: 12px; font-weight: 500;
+      color: var(--text-secondary); cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: inherit;
     }
     .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-    /* Footer */
+    .search-input {
+      padding: 4px 8px; border: 1px solid var(--border);
+      border-radius: 4px; font-size: 11px; width: 160px; font-family: inherit;
+    }
+
+    /* Prompt layout */
+    .role-list { list-style: none; padding: 8px; }
+    .role-item {
+      padding: 10px 12px; border-radius: 6px; cursor: pointer;
+      font-size: 12px; margin-bottom: 2px;
+    }
+    .role-item:hover { background: #F1F5F9; }
+    .role-item.active { background: var(--primary-light); color: #1D4ED8; font-weight: 500; }
+    .role-item small { display: block; color: var(--text-secondary); font-weight: 400; margin-top: 2px; }
+
+    .prompt-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+    .editor-block h4 { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-secondary); }
+    .char-count { font-size: 10px; color: var(--text-secondary); text-align: right; margin-top: 4px; }
+
+    .version-bar {
+      padding: 10px 16px; background: #F8FAFC; border-bottom: 1px solid var(--border);
+      font-size: 11px; color: var(--text-secondary);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    /* SQL code block */
+    .code-block {
+      background: #1E293B; color: #E2E8F0; padding: 14px 16px;
+      border-radius: 6px; font-family: 'SF Mono', Menlo, monospace;
+      font-size: 11px; line-height: 1.7; overflow-x: auto; white-space: pre;
+    }
+
+    .code-block .placeholder { color: #FBBF24; }
+
+    /* Search test */
+    .test-input-row {
+      display: flex; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border);
+    }
+
+    .test-input-row .form-input { flex: 1; background: #fff; }
+
+    .match-reason { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* Progress */
+    .progress-wrap { padding: 16px; }
+    .progress-bar {
+      height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; margin: 12px 0;
+    }
+    .progress-fill {
+      height: 100%; background: var(--primary); border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .report-summary {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px;
+    }
+
+    .report-metric {
+      text-align: center; padding: 16px; background: #F8FAFC; border-radius: 8px;
+    }
+
+    .report-metric .val { font-size: 28px; font-weight: 700; color: var(--primary); }
+    .report-metric .lbl { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+    .sample-item {
+      border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; overflow: hidden;
+    }
+
+    .sample-header {
+      padding: 10px 14px; background: #F8FAFC; cursor: pointer;
+      display: flex; justify-content: space-between; font-size: 12px; font-weight: 500;
+    }
+
+    .sample-body { padding: 14px; font-size: 12px; border-top: 1px solid var(--border); display: none; }
+    .sample-item.open .sample-body { display: block; }
+
+    /* Settings */
+    .settings-group { padding: 16px; border-bottom: 1px solid var(--border); }
+    .settings-group:last-child { border-bottom: none; }
+    .settings-group h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; font-size: 12px;
+    }
+
+    .toggle {
+      width: 36px; height: 20px; background: #CBD5E1; border-radius: 10px;
+      position: relative; cursor: pointer;
+    }
+
+    .toggle.on { background: var(--primary); }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; background: #fff; border-radius: 50%;
+      transition: left 0.15s;
+    }
+
+    .toggle.on::after { left: 18px; }
+
+    /* Chart preview placeholder */
+    .chart-preview-box {
+      height: 120px; background: #F8FAFC; border: 1px dashed var(--border);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-size: 12px; margin-top: 12px;
+    }
+
+    .filter-bar {
+      display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+    }
+
+    .filter-bar select {
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+      font-size: 11px; font-family: inherit;
+    }
+
     .site-footer {
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 10px 24px;
-      text-align: center;
-      font-size: 11px;
-      color: var(--text-secondary);
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 10px 24px; text-align: center; font-size: 11px; color: var(--text-secondary);
     }
 
     .site-footer strong { color: var(--text); font-weight: 500; }
 
+    .mt-16 { margin-top: 16px; }
+
     @media (max-width: 1200px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .panel-grid { grid-template-columns: 1fr; }
+      .panel-grid, .panel-grid-3-2 { grid-template-columns: 1fr; }
+      .prompt-editor-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 768px) {
@@ -392,51 +404,43 @@
           <div class="brand-sub">管理后台</div>
         </div>
       </div>
-      <nav class="nav">
+      <nav class="nav" id="mainNav">
         <div class="nav-section">数据层</div>
-        <a class="nav-item active" href="#">
-          <span class="nav-icon">⬡</span>
-          数据源管理
-        </a>
+        <button class="nav-item active" data-view="datasource">
+          <span class="nav-icon">⬡</span>数据源管理
+        </button>
         <div class="nav-section">智能配置</div>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">◈</span>
-          系统 Prompt
-        </a>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">⌘</span>
-          SQL 模板
-        </a>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">▤</span>
-          报表模板
-        </a>
+        <button class="nav-item" data-view="prompt">
+          <span class="nav-icon">◈</span>系统 Prompt
+        </button>
+        <button class="nav-item" data-view="sql-template">
+          <span class="nav-icon">⌘</span>SQL 模板
+        </button>
+        <button class="nav-item" data-view="report-template">
+          <span class="nav-icon">▤</span>报表模板
+        </button>
         <div class="nav-section">质量保障</div>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">◎</span>
-          向量检索测试
-        </a>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">◷</span>
-          离线评估
-        </a>
+        <button class="nav-item" data-view="search-test">
+          <span class="nav-icon">◎</span>向量检索测试
+        </button>
+        <button class="nav-item" data-view="offline-eval">
+          <span class="nav-icon">◷</span>离线评估
+        </button>
         <div class="nav-section">系统</div>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">⚙</span>
-          系统设置
-        </a>
-        <a class="nav-item" href="#">
-          <span class="nav-icon">⚠</span>
-          告警信息
+        <button class="nav-item" data-view="settings">
+          <span class="nav-icon">⚙</span>系统设置
+        </button>
+        <button class="nav-item" data-view="alerts">
+          <span class="nav-icon">⚠</span>告警信息
           <span class="badge">3</span>
-        </a>
+        </button>
       </nav>
       <div class="sidebar-footer">
         <div class="user-chip">
           <div class="avatar">张</div>
           <div>
             <div style="color:#E2E8F0;font-size:12px;">张管理员</div>
-            <div style="font-size:10px;">数据管理员</div>
+            <div style="font-size:10px;color:#64748B;">数据管理员</div>
           </div>
         </div>
       </div>
@@ -444,215 +448,497 @@
 
     <div class="main">
       <header class="topbar">
-        <div class="breadcrumb">管理后台 / <span>数据源管理</span></div>
-        <div class="topbar-actions">
+        <div class="breadcrumb" id="breadcrumb">管理后台 / <span>数据源管理</span></div>
+        <div class="topbar-actions" id="topbarActions">
           <button class="btn">同步全部</button>
           <button class="btn btn-primary">+ 新增数据源</button>
         </div>
       </header>
 
       <div class="content">
-        <div class="page-header">
-          <h1 class="page-title">数据源与智能查询库</h1>
-          <p class="page-desc">接入业务数据库、同步表元数据，维护业务语义并纳入智能查询库</p>
+
+        <!-- ========== 数据源管理 ========== -->
+        <div class="view active" id="view-datasource">
+          <div class="page-header">
+            <h1 class="page-title">数据源与智能查询库</h1>
+            <p class="page-desc">接入业务数据库、同步表元数据，维护业务语义并纳入智能查询库</p>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">已接入数据源</div><div class="stat-value">4</div><div class="stat-meta">3 连接正常 · 1 异常</div></div>
+            <div class="stat-card"><div class="stat-label">智能查询库表数</div><div class="stat-value">128</div><div class="stat-meta up">↑ 12 较上周</div></div>
+            <div class="stat-card"><div class="stat-label">模板库条目</div><div class="stat-value">47</div><div class="stat-meta">SQL 28 · 报表 19</div></div>
+            <div class="stat-card"><div class="stat-label">最近评估命中率</div><div class="stat-value">86%</div><div class="stat-meta">2026-06-28 离线评估</div></div>
+          </div>
+          <div class="panel-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <span class="panel-title">数据源列表</span>
+                <input type="search" class="search-input" placeholder="搜索数据源…">
+              </div>
+              <div class="tabs">
+                <button class="tab active">全部</button>
+                <button class="tab">已纳入查询库</button>
+                <button class="tab">连接异常</button>
+              </div>
+              <div class="panel-body">
+                <table>
+                  <thead>
+                    <tr><th>数据源名称</th><th>目标库</th><th>表数 / 字段数</th><th>查询库</th><th>最近同步</th><th>状态</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td><strong>电商订单库</strong></td><td>order_db</td><td>42 / 386</td><td><span class="tag tag-green">38 表已纳入</span></td><td>今天 09:14</td><td><span class="status-dot ok">正常</span></td><td><button class="link">详情</button></td></tr>
+                    <tr><td><strong>用户中心库</strong></td><td>user_db</td><td>18 / 142</td><td><span class="tag tag-green">15 表已纳入</span></td><td>昨天 22:30</td><td><span class="status-dot ok">正常</span></td><td><button class="link">详情</button></td></tr>
+                    <tr><td><strong>财务结算库</strong></td><td>finance_db</td><td>24 / 198</td><td><span class="tag tag-blue">12 表已纳入</span></td><td>今天 06:00</td><td><span class="status-dot ok">正常</span></td><td><button class="link">详情</button></td></tr>
+                    <tr><td><strong>仓储物流库</strong></td><td>wms_db</td><td>— / —</td><td><span class="tag tag-gray">未同步</span></td><td>—</td><td><span class="status-dot err">连接失败</span></td><td><button class="link">修复</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="panel">
+                <div class="panel-header">
+                  <span class="panel-title">待处理告警</span>
+                  <button class="link" style="font-size:11px;" data-goto="alerts">查看全部</button>
+                </div>
+                <ul class="alert-list">
+                  <li class="alert-item"><div class="alert-level high"></div><div class="alert-content"><div class="alert-title">仓储物流库连接失败</div><div class="alert-meta">高 · 10 分钟前 · 地址不可达</div></div></li>
+                  <li class="alert-item"><div class="alert-level mid"></div><div class="alert-content"><div class="alert-title">检索低分集中 — 订单域</div><div class="alert-meta">中 · 2 小时前 · 低相似度占比 18%</div></div></li>
+                  <li class="alert-item"><div class="alert-level low"></div><div class="alert-content"><div class="alert-title">返回行数超限频发</div><div class="alert-meta">低 · 今天 08:00 · 近 1h 内 5 次</div></div></li>
+                </ul>
+              </div>
+              <div class="panel">
+                <div class="panel-header"><span class="panel-title">连接配置预览</span></div>
+                <div class="form-preview">
+                  <div class="form-row"><label class="form-label">连接地址</label><input class="form-input" value="mysql://10.0.12.88:3306/order_db" readonly></div>
+                  <div class="form-row"><label class="form-label">访问账号</label><input class="form-input" value="readonly_user" readonly></div>
+                  <div class="form-row"><label class="form-label">最近测试</label><input class="form-input" value="2026-07-01 09:14:22 — 连接成功" readonly></div>
+                  <div class="form-actions">
+                    <button class="btn">测试连接</button>
+                    <button class="btn btn-primary">同步元数据</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel mt-16">
+            <div class="panel-header">
+              <span class="panel-title">表元数据维护 — orders 订单表</span>
+              <span class="tag tag-orange">手动 + 同步</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead><tr><th>物理字段</th><th>业务中文名</th><th>同义词</th><th>智能查询库</th><th>来源</th></tr></thead>
+                <tbody>
+                  <tr><td><code>order_id</code></td><td>订单唯一标识</td><td><span class="tag tag-gray">订单号</span></td><td><span class="tag tag-green">已纳入</span></td><td>同步</td></tr>
+                  <tr><td><code>amount</code></td><td>销售金额</td><td><span class="tag tag-gray">销售额</span> <span class="tag tag-gray">GMV</span></td><td><span class="tag tag-green">已纳入</span></td><td>同步</td></tr>
+                  <tr><td><code>created_at</code></td><td>下单时间</td><td><span class="tag tag-gray">注册日期</span> <span class="tag tag-gray">创建时间</span></td><td><span class="tag tag-green">已纳入</span></td><td>手动</td></tr>
+                  <tr><td><code>region</code></td><td>销售区域</td><td><span class="tag tag-gray">地区</span> <span class="tag tag-gray">大区</span></td><td><span class="tag tag-green">已纳入</span></td><td>同步</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">已接入数据源</div>
-            <div class="stat-value">4</div>
-            <div class="stat-meta">3 连接正常 · 1 异常</div>
+        <!-- ========== 系统 Prompt ========== -->
+        <div class="view" id="view-prompt">
+          <div class="page-header">
+            <h1 class="page-title">系统 Prompt 管理</h1>
+            <p class="page-desc">按用户角色配置角色设定与系统限制，影响智能助手的语气与行为边界</p>
           </div>
-          <div class="stat-card">
-            <div class="stat-label">智能查询库表数</div>
-            <div class="stat-value">128</div>
-            <div class="stat-meta up">↑ 12 较上周</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">模板库条目</div>
-            <div class="stat-value">47</div>
-            <div class="stat-meta">SQL 28 · 报表 19</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">最近评估命中率</div>
-            <div class="stat-value">86%</div>
-            <div class="stat-meta">2026-06-28 离线评估</div>
+          <div class="panel-grid-3-2">
+            <div class="panel">
+              <div class="panel-header"><span class="panel-title">角色列表</span></div>
+              <ul class="role-list">
+                <li class="role-item active">默认 / 全局<small>未单独配置的角色继承此项</small></li>
+                <li class="role-item">普通业务员<small>已单独配置 · v12</small></li>
+                <li class="role-item">区域经理<small>继承默认</small></li>
+                <li class="role-item">财务专员<small>已单独配置 · v3</small></li>
+              </ul>
+            </div>
+            <div class="panel">
+              <div class="version-bar">
+                <span>当前生效版本：<strong>v12</strong> · 张管理员 · 2026-06-30 16:22</span>
+                <button class="link" style="font-size:11px;">历史版本</button>
+              </div>
+              <div class="prompt-editor-grid">
+                <div class="editor-block">
+                  <h4>角色设定</h4>
+                  <textarea class="form-textarea tall">你是熟悉电商业务的数据分析助手，名叫「灵析」。你帮助业务员用自然语言获取数据和报表，回复简洁专业、使用业务术语而非技术术语。</textarea>
+                  <div class="char-count">128 字</div>
+                </div>
+                <div class="editor-block">
+                  <h4>系统限制</h4>
+                  <textarea class="form-textarea tall">1. 不得查询未纳入智能查询库的表或字段
+2. 不得输出用户权限范围外的字段
+3. 遇到薪资、身份证号相关提问须拒绝并说明原因
+4. 单次查询结果不得超过系统配置的行数上限</textarea>
+                  <div class="char-count">96 字</div>
+                </div>
+              </div>
+              <div class="panel-body-pad" style="padding-top:0;">
+                <div class="form-row">
+                  <label class="form-label">预览 — 输入模拟问题</label>
+                  <input class="form-input" placeholder="例如：查一下所有员工的薪资明细" value="查一下所有员工的薪资明细">
+                </div>
+                <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:10px 14px;font-size:12px;color:#991B1B;">
+                  预期响应：拒绝查询，说明「薪资相关数据不在您的查询权限范围内，如需此类数据请联系 HR 部门。」
+                </div>
+                <div class="form-actions">
+                  <button class="btn">预览</button>
+                  <button class="btn">回滚版本</button>
+                  <button class="btn btn-primary">保存</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="panel-grid">
+        <!-- ========== SQL 模板 ========== -->
+        <div class="view" id="view-sql-template">
+          <div class="page-header">
+            <h1 class="page-title">SQL 模板管理</h1>
+            <p class="page-desc">维护带占位符的标准 SQL，评分后可收入模板库供用户端推荐命中</p>
+          </div>
           <div class="panel">
             <div class="panel-header">
-              <span class="panel-title">数据源列表</span>
-              <input type="search" placeholder="搜索数据源…" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:11px;width:160px;">
-            </div>
-            <div class="tabs">
-              <div class="tab active">全部</div>
-              <div class="tab">已纳入查询库</div>
-              <div class="tab">连接异常</div>
+              <span class="panel-title">SQL 模板列表</span>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="search" class="search-input" placeholder="搜索模板名称…">
+                <select class="search-input" style="width:auto;"><option>全部</option><option>已在库</option><option>未在库</option></select>
+              </div>
             </div>
             <div class="panel-body">
               <table>
                 <thead>
-                  <tr>
-                    <th>数据源名称</th>
-                    <th>目标库</th>
-                    <th>表数 / 字段数</th>
-                    <th>查询库</th>
-                    <th>最近同步</th>
-                    <th>状态</th>
-                    <th></th>
-                  </tr>
+                  <tr><th>模板名称</th><th>适用场景</th><th>得分</th><th>模板库</th><th>最近使用</th><th>操作</th></tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>电商订单库</strong></td>
-                    <td>order_db</td>
-                    <td>42 / 386</td>
-                    <td><span class="tag tag-green">38 表已纳入</span></td>
-                    <td>今天 09:14</td>
-                    <td><span class="status-dot ok">正常</span></td>
-                    <td><a class="link">详情</a></td>
+                    <td><strong>华东区月度销售额</strong></td>
+                    <td>按区域汇总指定时间段的销售总额</td>
+                    <td><span class="tag tag-green">92</span></td>
+                    <td><span class="tag tag-blue">已在库</span></td>
+                    <td>今天 14:20</td>
+                    <td><button class="link">编辑</button> · <button class="link">移出</button></td>
                   </tr>
                   <tr>
-                    <td><strong>用户中心库</strong></td>
-                    <td>user_db</td>
-                    <td>18 / 142</td>
-                    <td><span class="tag tag-green">15 表已纳入</span></td>
-                    <td>昨天 22:30</td>
-                    <td><span class="status-dot ok">正常</span></td>
-                    <td><a class="link">详情</a></td>
+                    <td><strong>新用户注册趋势</strong></td>
+                    <td>按日统计新注册用户数量</td>
+                    <td><span class="tag tag-green">88</span></td>
+                    <td><span class="tag tag-blue">已在库</span></td>
+                    <td>昨天 11:05</td>
+                    <td><button class="link">编辑</button> · <button class="link">移出</button></td>
                   </tr>
                   <tr>
-                    <td><strong>财务结算库</strong></td>
-                    <td>finance_db</td>
-                    <td>24 / 198</td>
-                    <td><span class="tag tag-blue">12 表已纳入</span></td>
-                    <td>今天 06:00</td>
-                    <td><span class="status-dot ok">正常</span></td>
-                    <td><a class="link">详情</a></td>
-                  </tr>
-                  <tr>
-                    <td><strong>仓储物流库</strong></td>
-                    <td>wms_db</td>
-                    <td>— / —</td>
-                    <td><span class="tag tag-gray">未同步</span></td>
-                    <td>—</td>
-                    <td><span class="status-dot err">连接失败</span></td>
-                    <td><a class="link">修复</a></td>
+                    <td><strong>Top N 商品销量</strong></td>
+                    <td>指定时间范围内销量最高的 N 个商品</td>
+                    <td><span class="tag tag-orange">76</span></td>
+                    <td><span class="tag tag-gray">未在库</span></td>
+                    <td>3 天前</td>
+                    <td><button class="link">编辑</button> · <button class="link">收入库</button></td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
-
-          <div style="display:flex;flex-direction:column;gap:16px;">
-            <div class="panel">
-              <div class="panel-header">
-                <span class="panel-title">待处理告警</span>
-                <a class="link" style="font-size:11px;">查看全部</a>
+          <div class="panel mt-16">
+            <div class="panel-header"><span class="panel-title">编辑模板 — 华东区月度销售额</span></div>
+            <div class="panel-body-pad">
+              <div class="form-row"><label class="form-label">模板名称</label><input class="form-input" value="华东区月度销售额"></div>
+              <div class="form-row"><label class="form-label">适用业务场景描述</label><input class="form-input" value="按区域汇总指定时间段的销售总额，适用于区域销售分析"></div>
+              <div class="form-row">
+                <label class="form-label">SQL 语句 <span style="color:var(--success);font-weight:400;">✓ 占位符格式校验通过</span></label>
+                <div class="code-block">SELECT region, SUM(amount) AS total_sales
+FROM orders
+WHERE region = <span class="placeholder">{{region}}</span>
+  AND created_at &gt;= <span class="placeholder">{{start_date}}</span>
+  AND created_at &lt; <span class="placeholder">{{end_date}}</span>
+GROUP BY region</div>
               </div>
-              <ul class="alert-list">
-                <li class="alert-item">
-                  <div class="alert-level high"></div>
-                  <div class="alert-content">
-                    <div class="alert-title">仓储物流库连接失败</div>
-                    <div class="alert-meta">高 · 10 分钟前 · 地址不可达</div>
-                  </div>
-                </li>
-                <li class="alert-item">
-                  <div class="alert-level mid"></div>
-                  <div class="alert-content">
-                    <div class="alert-title">检索低分集中 — 订单域</div>
-                    <div class="alert-meta">中 · 2 小时前 · 低相似度占比 18%</div>
-                  </div>
-                </li>
-                <li class="alert-item">
-                  <div class="alert-level low"></div>
-                  <div class="alert-content">
-                    <div class="alert-title">返回行数超限频发</div>
-                    <div class="alert-meta">低 · 今天 08:00 · 近 1h 内 5 次</div>
-                  </div>
-                </li>
-              </ul>
+              <div class="form-actions">
+                <button class="btn btn-danger">删除</button>
+                <button class="btn">停用</button>
+                <button class="btn btn-primary">保存</button>
+              </div>
             </div>
+          </div>
+        </div>
 
-            <div class="panel">
-              <div class="panel-header">
-                <span class="panel-title">连接配置预览</span>
+        <!-- ========== 报表模板 ========== -->
+        <div class="view" id="view-report-template">
+          <div class="page-header">
+            <h1 class="page-title">报表模板管理</h1>
+            <p class="page-desc">维护图表类型、SQL 与轴映射配置，收入模板库后可在报表模式下推荐</p>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">报表模板列表</span>
+              <input type="search" class="search-input" placeholder="搜索模板…">
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr><th>模板名称</th><th>图表类型</th><th>适用场景</th><th>得分</th><th>模板库</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><strong>华东区月度销售额</strong></td><td><span class="tag tag-purple">柱状图</span></td><td>区域销售汇总对比</td><td><span class="tag tag-green">90</span></td><td><span class="tag tag-blue">已在库</span></td><td><button class="link">编辑</button></td></tr>
+                  <tr><td><strong>新用户注册趋势</strong></td><td><span class="tag tag-purple">折线图</span></td><td>每日新增用户走势</td><td><span class="tag tag-green">85</span></td><td><span class="tag tag-blue">已在库</span></td><td><button class="link">编辑</button></td></tr>
+                  <tr><td><strong>品类销售明细</strong></td><td><span class="tag tag-purple">表格</span></td><td>各品类销售数据列表</td><td><span class="tag tag-orange">72</span></td><td><span class="tag tag-gray">未在库</span></td><td><button class="link">编辑</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel mt-16">
+            <div class="panel-header"><span class="panel-title">编辑报表模板 — 华东区月度销售额</span></div>
+            <div class="panel-body-pad">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                  <div class="form-row"><label class="form-label">模板名称</label><input class="form-input" value="华东区月度销售额"></div>
+                  <div class="form-row"><label class="form-label">图表类型</label><select class="form-select"><option selected>柱状图</option><option>折线图</option><option>表格</option></select></div>
+                  <div class="form-row"><label class="form-label">横轴字段</label><select class="form-select"><option selected>region（销售区域）</option><option>category（品类）</option></select></div>
+                  <div class="form-row"><label class="form-label">纵轴字段</label><select class="form-select"><option selected>total_sales（销售总额）</option><option>order_count（订单数）</option></select></div>
+                  <div class="form-row">
+                    <label class="form-label">对应 SQL</label>
+                    <div class="code-block" style="font-size:10px;">SELECT region, SUM(amount) AS total_sales
+FROM orders WHERE region = <span class="placeholder">{{region}}</span>
+GROUP BY region</div>
+                  </div>
+                </div>
+                <div>
+                  <label class="form-label">预览示意图</label>
+                  <div class="chart-preview-box">
+                    <svg width="200" height="80" viewBox="0 0 200 80">
+                      <rect x="20" y="40" width="30" height="35" fill="#3B82F6" rx="3"/>
+                      <rect x="60" y="25" width="30" height="50" fill="#3B82F6" rx="3"/>
+                      <rect x="100" y="35" width="30" height="40" fill="#3B82F6" rx="3"/>
+                      <rect x="140" y="15" width="30" height="60" fill="#3B82F6" rx="3"/>
+                      <text x="100" y="78" text-anchor="middle" fill="#64748B" font-size="9">region → total_sales</text>
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <div class="form-preview">
-                <div class="form-row">
-                  <label class="form-label">连接地址</label>
-                  <input class="form-input" value="mysql://10.0.12.88:3306/order_db" readonly>
+              <div class="form-actions">
+                <button class="btn btn-primary">保存</button>
+                <button class="btn">收入模板库</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 向量检索测试 ========== -->
+        <div class="view" id="view-search-test">
+          <div class="page-header">
+            <h1 class="page-title">向量检索测试</h1>
+            <p class="page-desc">验证语义检索质量 — 模拟用户问题能否正确匹配到表/字段（不触发 SQL 生成）</p>
+          </div>
+          <div class="panel">
+            <div class="test-input-row">
+              <input class="form-input" id="searchQuestion" value="上个月华东销售额" placeholder="输入模拟用户问题…">
+              <button class="btn btn-primary" id="btnStartTest">开始测试</button>
+              <button class="btn">保存为用例</button>
+            </div>
+            <div class="panel-header" style="border-top:1px solid var(--border);">
+              <span class="panel-title">匹配结果 Top 10</span>
+              <button class="link" style="font-size:11px;">复制检索结果摘要</button>
+            </div>
+            <div class="panel-body" id="searchResults">
+              <table>
+                <thead>
+                  <tr><th>#</th><th>表名</th><th>字段名</th><th>业务中文名</th><th>相似度</th><th>匹配理由</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td><td><code>orders</code></td><td><code>amount</code></td><td>销售金额</td>
+                    <td><span class="tag sim-high">高</span></td>
+                    <td class="match-reason">问题中「销售额」命中字段同义词「销售金额」</td>
+                  </tr>
+                  <tr>
+                    <td>2</td><td><code>orders</code></td><td><code>region</code></td><td>销售区域</td>
+                    <td><span class="tag sim-high">高</span></td>
+                    <td class="match-reason">问题中「华东」命中区域枚举值及同义词「大区」</td>
+                  </tr>
+                  <tr>
+                    <td>3</td><td><code>orders</code></td><td><code>created_at</code></td><td>下单时间</td>
+                    <td><span class="tag sim-mid">中</span></td>
+                    <td class="match-reason">问题中「上个月」映射为时间范围条件，关联下单时间字段</td>
+                  </tr>
+                  <tr>
+                    <td>4</td><td><code>order_items</code></td><td><code>quantity</code></td><td>购买数量</td>
+                    <td><span class="tag sim-low">低</span></td>
+                    <td class="match-reason">与「销售额」语义弱相关</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== 离线评估 ========== -->
+        <div class="view" id="view-offline-eval">
+          <div class="page-header">
+            <h1 class="page-title">离线评估</h1>
+            <p class="page-desc">批量验证系统理解质量 — 语义检索 → 生成 → 与期望要点比对</p>
+          </div>
+          <div class="panel-grid">
+            <div class="panel">
+              <div class="panel-header"><span class="panel-title">评估集列表</span></div>
+              <div class="panel-body">
+                <table>
+                  <thead><tr><th>评估集</th><th>用例数</th><th>最近运行</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td><strong>基础评估集 v3</strong></td><td>20</td><td>2026-06-28</td><td><button class="link">运行</button></td></tr>
+                    <tr><td><strong>订单域专项</strong></td><td>45</td><td>2026-06-15</td><td><button class="link">运行</button></td></tr>
+                    <tr><td><strong>报表模式测试集</strong></td><td>15</td><td>—</td><td><button class="link">运行</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="progress-wrap" id="evalProgress" style="display:none;">
+                <div style="font-size:12px;margin-bottom:4px;">正在评估… <strong>8 / 20</strong></div>
+                <div class="progress-bar"><div class="progress-fill" style="width:40%"></div></div>
+                <button class="btn btn-danger" style="margin-top:8px;">取消</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><span class="panel-title">评估报告 — 基础评估集 v3</span><button class="btn" style="font-size:11px;">导出</button></div>
+              <div class="report-summary">
+                <div class="report-metric"><div class="val">86%</div><div class="lbl">检索命中率</div></div>
+                <div class="report-metric"><div class="val">91%</div><div class="lbl">生成成功率</div></div>
+                <div class="report-metric"><div class="val">3</div><div class="lbl">低分样本</div></div>
+              </div>
+              <div class="panel-body-pad" style="padding-top:0;">
+                <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">一致性摘要：80% 低分样本集中在订单域，建议补充「退货」相关同义词。</p>
+                <div class="sample-item open">
+                  <div class="sample-header">样本 #1 — 「各品类退货率对比」<span class="tag sim-low">未命中</span></div>
+                  <div class="sample-body">
+                    <p><strong>期望涉及表：</strong>returns, orders</p>
+                    <p style="margin-top:8px;"><strong>系统输出：</strong>仅匹配到 orders 表，未检索到 returns 表</p>
+                    <p style="margin-top:8px;"><strong>差异说明：</strong>returns 表未纳入智能查询库</p>
+                  </div>
                 </div>
-                <div class="form-row">
-                  <label class="form-label">访问账号</label>
-                  <input class="form-input" value="readonly_user" readonly>
-                </div>
-                <div class="form-row">
-                  <label class="form-label">最近测试</label>
-                  <input class="form-input" value="2026-07-01 09:14:22 — 连接成功" readonly>
-                </div>
-                <div class="form-actions">
-                  <button class="btn">测试连接</button>
-                  <button class="btn btn-primary">同步元数据</button>
+                <div class="sample-item">
+                  <div class="sample-header">样本 #2 — 「VIP 客户消费排名」<span class="tag sim-mid">部分命中</span></div>
+                  <div class="sample-body">
+                    <p><strong>期望要点：</strong>按消费金额降序排列 Top 20</p>
+                    <p style="margin-top:8px;"><strong>系统输出：</strong>SQL 缺少 ORDER BY 和 LIMIT</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Secondary section: metadata & templates snapshot -->
-        <div class="panel" style="margin-top:16px;">
-          <div class="panel-header">
-            <span class="panel-title">表元数据维护 — orders 订单表</span>
-            <span class="tag tag-orange">手动 + 同步</span>
+        <!-- ========== 系统设置 ========== -->
+        <div class="view" id="view-settings">
+          <div class="page-header">
+            <h1 class="page-title">系统设置</h1>
+            <p class="page-desc">配置 SQL 生成策略与返回行数上限，变更将影响全体用户的查询行为</p>
           </div>
-          <div class="panel-body">
-            <table>
-              <thead>
-                <tr>
-                  <th>物理字段</th>
-                  <th>业务中文名</th>
-                  <th>同义词</th>
-                  <th>智能查询库</th>
-                  <th>来源</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>order_id</code></td>
-                  <td>订单唯一标识</td>
-                  <td><span class="tag tag-gray">订单号</span></td>
-                  <td><span class="tag tag-green">已纳入</span></td>
-                  <td>同步</td>
-                </tr>
-                <tr>
-                  <td><code>amount</code></td>
-                  <td>销售金额</td>
-                  <td><span class="tag tag-gray">销售额</span> <span class="tag tag-gray">GMV</span></td>
-                  <td><span class="tag tag-green">已纳入</span></td>
-                  <td>同步</td>
-                </tr>
-                <tr>
-                  <td><code>created_at</code></td>
-                  <td>下单时间</td>
-                  <td><span class="tag tag-gray">注册日期</span> <span class="tag tag-gray">创建时间</span></td>
-                  <td><span class="tag tag-green">已纳入</span></td>
-                  <td>手动</td>
-                </tr>
-                <tr>
-                  <td><code>region</code></td>
-                  <td>销售区域</td>
-                  <td><span class="tag tag-gray">地区</span> <span class="tag tag-gray">大区</span></td>
-                  <td><span class="tag tag-green">已纳入</span></td>
-                  <td>同步</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="panel" style="max-width:720px;">
+            <div class="version-bar">
+              <span>最近修改：张管理员 · 2026-06-25 10:30</span>
+            </div>
+            <div class="settings-group">
+              <h3>SQL 生成策略</h3>
+              <div class="toggle-row">
+                <span>允许跨数据源关联查询</span>
+                <div class="toggle" role="switch" aria-checked="false" tabindex="0"></div>
+              </div>
+              <div class="form-row" style="margin-top:12px;">
+                <label class="form-label">默认时间范围推断规则</label>
+                <select class="form-select">
+                  <option>近 7 天</option>
+                  <option selected>近 30 天</option>
+                  <option>须用户明确指定</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-group">
+              <h3>返回数据行数上限</h3>
+              <div class="form-row">
+                <label class="form-label">单次查询最大行数（建议 1000–10000）</label>
+                <input class="form-input" type="number" value="5000" style="max-width:200px;">
+              </div>
+              <p style="font-size:11px;color:var(--text-secondary);">超限时系统将明确提示用户收窄条件，不会静默截断。频发超限可触发告警。</p>
+            </div>
+            <div class="panel-body-pad">
+              <div class="form-actions" style="border:none;padding:0;margin:0;">
+                <button class="btn btn-primary">保存设置</button>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- ========== 告警信息 ========== -->
+        <div class="view" id="view-alerts">
+          <div class="page-header">
+            <h1 class="page-title">告警信息</h1>
+            <p class="page-desc">集中展示需关注的业务异常事件，支持标记已读/已处理及跳转关联配置</p>
+          </div>
+          <div class="panel">
+            <div class="filter-bar">
+              <select><option>全部级别</option><option>高</option><option>中</option><option>低</option></select>
+              <select><option>全部类型</option><option>检索质量低分</option><option>连接失败</option><option>行数超限</option></select>
+              <select><option>全部状态</option><option>未读</option><option>已读</option><option>已处理</option></select>
+              <input type="date" class="search-input" style="width:auto;" value="2026-07-01">
+              <button class="btn" style="margin-left:auto;">批量标记已读</button>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead>
+                  <tr><th>级别</th><th>发生时间</th><th>事件类型</th><th>摘要</th><th>关联对象</th><th>状态</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="tag tag-red">高</span></td>
+                    <td>2026-07-01 14:22</td>
+                    <td>数据源连接失败</td>
+                    <td>地址不可达，连接测试失败</td>
+                    <td>仓储物流库</td>
+                    <td><span class="tag tag-orange">未读</span></td>
+                    <td><button class="link" data-goto="datasource">跳转配置</button> · <button class="link">标记处理</button></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-orange">中</span></td>
+                    <td>2026-07-01 12:05</td>
+                    <td>检索质量低分集中</td>
+                    <td>低相似度占比 18%，超过阈值 15%</td>
+                    <td>订单域</td>
+                    <td><span class="tag tag-orange">未读</span></td>
+                    <td><button class="link" data-goto="search-test">检索测试</button> · <button class="link">标记处理</button></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-blue">低</span></td>
+                    <td>2026-07-01 08:00</td>
+                    <td>返回行数超限频发</td>
+                    <td>近 1 小时内发生 5 次</td>
+                    <td>系统设置</td>
+                    <td><span class="tag tag-gray">已读</span></td>
+                    <td><button class="link" data-goto="settings">查看设置</button> · <button class="link">标记处理</button></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-orange">中</span></td>
+                    <td>2026-06-30 22:18</td>
+                    <td>模板匹配失败率异常</td>
+                    <td>报表模式匹配失败率 22%</td>
+                    <td>report_templates</td>
+                    <td><span class="tag tag-green">已处理</span></td>
+                    <td><button class="link" data-goto="report-template">查看模板</button></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-blue">低</span></td>
+                    <td>2026-06-30 16:40</td>
+                    <td>离线评估异常终止</td>
+                    <td>评估任务在第 12 条用例时超时</td>
+                    <td>订单域专项</td>
+                    <td><span class="tag tag-green">已处理</span></td>
+                    <td><button class="link" data-goto="offline-eval">查看评估</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <footer class="site-footer">
@@ -660,5 +946,91 @@
       </footer>
     </div>
   </div>
+
+  <script>
+    const VIEW_CONFIG = {
+      'datasource':     { title: '数据源管理', actions: '<button class="btn">同步全部</button><button class="btn btn-primary">+ 新增数据源</button>' },
+      'prompt':         { title: '系统 Prompt', actions: '<button class="btn">预览</button><button class="btn btn-primary">保存</button>' },
+      'sql-template':   { title: 'SQL 模板', actions: '<button class="btn btn-primary">+ 新建 SQL 模板</button>' },
+      'report-template':{ title: '报表模板', actions: '<button class="btn btn-primary">+ 新建报表模板</button>' },
+      'search-test':    { title: '向量检索测试', actions: '<button class="btn">管理测试用例</button>' },
+      'offline-eval':   { title: '离线评估', actions: '<button class="btn">导入评估集</button><button class="btn btn-primary">+ 新建评估集</button>' },
+      'settings':       { title: '系统设置', actions: '<button class="btn btn-primary">保存设置</button>' },
+      'alerts':         { title: '告警信息', actions: '<button class="btn">批量标记已读</button>' }
+    };
+
+    function switchView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+      const view = document.getElementById('view-' + viewId);
+      const nav = document.querySelector('[data-view="' + viewId + '"]');
+      if (view) view.classList.add('active');
+      if (nav) nav.classList.add('active');
+
+      const cfg = VIEW_CONFIG[viewId];
+      if (cfg) {
+        document.getElementById('breadcrumb').innerHTML = '管理后台 / <span>' + cfg.title + '</span>';
+        document.getElementById('topbarActions').innerHTML = cfg.actions;
+      }
+
+      history.replaceState(null, '', '#' + viewId);
+    }
+
+    document.getElementById('mainNav').addEventListener('click', e => {
+      const item = e.target.closest('[data-view]');
+      if (item) { e.preventDefault(); switchView(item.dataset.view); }
+    });
+
+    document.addEventListener('click', e => {
+      const goto = e.target.closest('[data-goto]');
+      if (goto) { e.preventDefault(); switchView(goto.dataset.goto); }
+    });
+
+    document.querySelectorAll('.role-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.role-item').forEach(r => r.classList.remove('active'));
+        item.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.sample-header').forEach(header => {
+      header.addEventListener('click', () => header.parentElement.classList.toggle('open'));
+    });
+
+    document.querySelectorAll('.toggle').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('on');
+        toggle.setAttribute('aria-checked', toggle.classList.contains('on'));
+      });
+    });
+
+    document.getElementById('btnStartTest')?.addEventListener('click', () => {
+      const q = document.getElementById('searchQuestion').value;
+      const tbody = document.querySelector('#searchResults tbody');
+      tbody.style.opacity = '0.4';
+      setTimeout(() => { tbody.style.opacity = '1'; }, 400);
+    });
+
+    document.querySelectorAll('.panel .tabs').forEach(tabBar => {
+      tabBar.addEventListener('click', e => {
+        const tab = e.target.closest('.tab');
+        if (!tab) return;
+        tabBar.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('[data-view="offline-eval"] .link').forEach(btn => {
+      if (btn.textContent.trim() === '运行') {
+        btn.addEventListener('click', () => {
+          document.getElementById('evalProgress').style.display = 'block';
+        });
+      }
+    });
+
+    const hash = location.hash.slice(1);
+    if (hash && VIEW_CONFIG[hash]) switchView(hash);
+  </script>
 </body>
 </html>
