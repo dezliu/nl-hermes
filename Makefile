@@ -1,4 +1,4 @@
-.PHONY: help up down build migrate seed dev test lint logs clean install infra mysql-up
+.PHONY: help up down build migrate seed dev test lint logs clean install infra mysql-up health
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -29,7 +29,19 @@ seed: ## 导入演示数据
 	@echo "Seed not yet implemented (Phase 2)"
 
 dev: infra ## 本地开发：infra + pnpm dev
+	@echo "管理后台: http://localhost:3002/admin"
+	@echo "健康检查: make health"
 	MYSQL_HOST=localhost MYSQL_PORT=3307 pnpm dev
+
+health: ## 检查各服务健康状态（需 make dev 运行中）
+	@echo "== metadata-service :4050 =="
+	@curl -sf http://localhost:4050/health | jq . || echo "  ✗ 未响应"
+	@echo "== rag-service :4020 =="
+	@curl -sf http://localhost:4020/health | jq . || echo "  ✗ 未响应"
+	@echo "== report-service :4030 =="
+	@curl -sf http://localhost:4030/health | jq . || echo "  ✗ 未响应"
+	@echo "== web-admin :3002 =="
+	@curl -sf -o /dev/null -w "  HTTP %{http_code} → /admin\n" http://localhost:3002/admin || echo "  ✗ 未响应"
 
 test: ## 运行测试
 	pnpm test

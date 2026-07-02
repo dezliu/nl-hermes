@@ -1,5 +1,8 @@
 import knex, { type Knex } from 'knex';
 import { Model } from 'objection';
+import { loadEnv } from '@hermes/shared';
+
+loadEnv();
 
 export type MetaDbConfig = {
   host?: string;
@@ -16,7 +19,7 @@ export function createMetaKnex(config: MetaDbConfig = {}): Knex {
     client: 'mysql2',
     connection: {
       host: config.host ?? process.env.MYSQL_HOST ?? 'localhost',
-      port: Number(config.port ?? process.env.MYSQL_PORT ?? 3306),
+      port: Number(config.port ?? process.env.MYSQL_PORT ?? 3307),
       user: config.user ?? process.env.MYSQL_USER ?? 'hermes',
       password: config.password ?? process.env.MYSQL_PASSWORD ?? 'hermes_dev',
       database: config.database ?? 'hermes_meta',

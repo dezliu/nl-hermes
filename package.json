@@ -12,6 +12,7 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
+    "@hermes/shared": "workspace:*",
     "knex": "^3.1.0",
     "mysql2": "^3.11.5"
   },

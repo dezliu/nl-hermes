@@ -11,3 +11,4 @@ export {
 } from './auth.js';
 export { requestLoggingMiddleware } from './middleware.js';
 export { redact } from './redact.js';
+export { loadEnv } from './load-env.js';
