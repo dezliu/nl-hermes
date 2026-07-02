@@ -7,6 +7,7 @@ import { MetaService } from './services/meta-service.js';
 import { PromptService } from './services/prompt-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { TemplateService } from './services/template-service.js';
+import { BusinessKnowledgeService } from './services/business-knowledge-service.js';
 import { mountRoutes } from './routes/index.js';
 import { mountMonitorRoutes } from './routes/monitor-routes.js';
 import { AlertRepository } from './repositories/alert-repository.js';
@@ -26,6 +27,7 @@ export function createMetadataApp(options: { enableServiceAuth?: boolean; servic
     prompt: new PromptService(repos, logger),
     settings: new SettingsService(repos, logger),
     template: new TemplateService(repos, logger),
+    businessKnowledge: new BusinessKnowledgeService(repos, logger),
   };
 
   const alertRepo = new AlertRepository();

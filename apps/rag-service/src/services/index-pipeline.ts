@@ -84,11 +84,33 @@ export class IndexPipelineService {
   }
 
   async rebuildBusiness(traceId?: string) {
-    // Business knowledge indexed from metadata-service in future; stub with empty for now
-    await this.os.ensureIndex(OPENSEARCH_INDICES.BUSINESS);
-    await this.qdrant.ensureCollection(QDRANT_COLLECTIONS.BUSINESS);
-    this.logger.info('rag.index.business.completed', { traceId, count: 0 });
-    return { collection: 'business', indexed: 0 };
+    const res = await fetch(`${this.metadataUrl}/v1/business-knowledge?status=active`, {
+      headers: this.authHeaders(traceId),
+    });
+    if (!res.ok) throw new Error(`Failed to fetch business knowledge: ${res.status}`);
+    const data = (await res.json()) as {
+      items: { id: string; title: string; category: string; content: string }[];
+    };
+    const items = data.items ?? [];
+
+    const docs = items.map((item) => ({
+      id: item.id,
+      content: [item.title, item.category, item.content].join(' '),
+      metadata: { type: item.category, title: item.title },
+    }));
+    const points = docs.map((d) => ({
+      id: d.id,
+      vector: embedText(d.content),
+      payload: { content: d.content, metadata: d.metadata },
+    }));
+
+    await Promise.all([
+      this.os.bulkIndex(OPENSEARCH_INDICES.BUSINESS, docs),
+      this.qdrant.upsertPoints(QDRANT_COLLECTIONS.BUSINESS, points),
+    ]);
+
+    this.logger.info('rag.index.business.completed', { traceId, count: docs.length });
+    return { collection: 'business', indexed: docs.length };
   }
 
   async rebuildTemplates(traceId?: string) {

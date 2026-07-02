@@ -5,6 +5,7 @@ import type { MetaService } from '../services/meta-service.js';
 import type { PromptService } from '../services/prompt-service.js';
 import type { SettingsService } from '../services/settings-service.js';
 import type { TemplateService } from '../services/template-service.js';
+import type { BusinessKnowledgeService } from '../services/business-knowledge-service.js';
 
 export type ServiceContext = {
   datasource: DatasourceService;
@@ -12,6 +13,7 @@ export type ServiceContext = {
   prompt: PromptService;
   settings: SettingsService;
   template: TemplateService;
+  businessKnowledge: BusinessKnowledgeService;
 };
 
 function actorId(req: Request): string | undefined {
@@ -178,6 +180,33 @@ export function mountRoutes(app: Express, ctx: ServiceContext): void {
 
   app.patch('/v1/templates/report/:id', asyncHandler(async (req, res) => {
     const item = await ctx.template.updateReport(param(req.params.id), req.body, getTraceId(req));
+    if (!item) { res.status(404).json({ error: 'not_found' }); return; }
+    res.json({ item });
+  }));
+
+  // Business knowledge
+  app.get('/v1/business-knowledge', asyncHandler(async (req, res) => {
+    const status = req.query.status as string | undefined;
+    const category = req.query.category as string | undefined;
+    res.json({ items: await ctx.businessKnowledge.list({ status, category }) });
+  }));
+
+  app.get('/v1/business-knowledge/:id', asyncHandler(async (req, res) => {
+    const item = await ctx.businessKnowledge.get(param(req.params.id));
+    if (!item) { res.status(404).json({ error: 'not_found' }); return; }
+    res.json({ item });
+  }));
+
+  app.post('/v1/business-knowledge', asyncHandler(async (req, res) => {
+    const item = await ctx.businessKnowledge.create(
+      { ...req.body, createdBy: actorId(req) },
+      getTraceId(req),
+    );
+    res.status(201).json({ item });
+  }));
+
+  app.patch('/v1/business-knowledge/:id', asyncHandler(async (req, res) => {
+    const item = await ctx.businessKnowledge.update(param(req.params.id), req.body, getTraceId(req));
     if (!item) { res.status(404).json({ error: 'not_found' }); return; }
     res.json({ item });
   }));

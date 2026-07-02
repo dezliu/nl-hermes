@@ -10,6 +10,7 @@ import {
   RoleModel,
   SqlTemplateModel,
   SystemSettingModel,
+  BusinessKnowledgeModel,
 } from '@hermes/orm-schemas';
 import type { Knex } from 'knex';
 
@@ -231,6 +232,27 @@ export class SettingsRepository {
   }
 }
 
+export class BusinessKnowledgeRepository {
+  list(filters?: { status?: string; category?: string }) {
+    let q = BusinessKnowledgeModel.query().orderBy('updated_at', 'desc');
+    if (filters?.status) q = q.where('status', filters.status);
+    if (filters?.category) q = q.where('category', filters.category);
+    return q;
+  }
+
+  findById(id: string) {
+    return BusinessKnowledgeModel.query().findById(id);
+  }
+
+  insert(data: Partial<BusinessKnowledgeModel>, trx?: Knex.Transaction) {
+    return BusinessKnowledgeModel.query(trx).insert(data);
+  }
+
+  patch(id: string, data: Partial<BusinessKnowledgeModel>, trx?: Knex.Transaction) {
+    return BusinessKnowledgeModel.query(trx).patchAndFetchById(id, data);
+  }
+}
+
 export class TemplateRepository {
   listSql(status?: string) {
     let q = SqlTemplateModel.query().orderBy('updated_at', 'desc');
@@ -282,6 +304,7 @@ export type Repositories = {
   meta: MetaRepository;
   prompt: PromptRepository;
   settings: SettingsRepository;
+  businessKnowledge: BusinessKnowledgeRepository;
   template: TemplateRepository;
 };
 
@@ -292,6 +315,7 @@ export function createRepositories(_logger?: Logger): Repositories {
     meta: new MetaRepository(),
     prompt: new PromptRepository(),
     settings: new SettingsRepository(),
+    businessKnowledge: new BusinessKnowledgeRepository(),
     template: new TemplateRepository(),
   };
 }

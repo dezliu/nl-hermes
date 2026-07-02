@@ -1,15 +1,20 @@
 export const WORKFLOW_NODES = [
+  'SecurityGuard',
   'LoadContext',
   'IntentClassify',
   'TemplateMatch',
+  'RagPrepare',
   'RagRetrieve',
   'RagQualityGate',
   'GenerateSQL',
   'GenerateReport',
-  'ReportRetry',
   'ValidateResult',
+  'ExecuteReport',
+  'SummarizeResult',
+  'GroundingCheck',
   'StreamOutput',
   'DirectAnswer',
+  'Clarify',
   'Refuse',
 ] as const;
 

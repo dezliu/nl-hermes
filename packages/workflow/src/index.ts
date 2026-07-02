@@ -7,9 +7,13 @@ export { buildWorkflowGraph, runWorkflow, type CompiledWorkflow } from './graph.
 export { createCheckpointer, createMemoryCheckpointer, saveCheckpointRef } from './checkpoint.js';
 export {
   loadContextNode,
+  securityGuardNode,
   intentClassifyNode,
   templateMatchNode,
+  ragPrepareNode,
   ragRetrieveNode,
+  ragQualityGateNode,
   routeAfterIntent,
   routeAfterQualityGate,
+  routeAfterSecurity,
 } from './nodes.js';

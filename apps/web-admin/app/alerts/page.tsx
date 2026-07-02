@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button, Input, Modal, Select, Space, Table, Tag, message } from 'antd';
 import { AdminLayout } from '../../components/AdminLayout';
@@ -19,7 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
   resolved: '已处理',
 };
 
-export default function AlertsPage() {
+function AlertsPageContent() {
   const searchParams = useSearchParams();
   const focusId = searchParams.get('id');
   const [items, setItems] = useState<AlertItem[]>([]);
@@ -201,5 +201,19 @@ export default function AlertsPage() {
         />
       </Modal>
     </AdminLayout>
+  );
+}
+
+export default function AlertsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminLayout>
+          <div style={{ padding: 24, color: '#64748B' }}>加载中...</div>
+        </AdminLayout>
+      }
+    >
+      <AlertsPageContent />
+    </Suspense>
   );
 }

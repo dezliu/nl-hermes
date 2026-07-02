@@ -4,19 +4,27 @@ import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { WorkflowGraphState } from './state.js';
 import type { WorkflowDeps } from './types.js';
 import {
+  clarifyNode,
   directAnswerNode,
+  executeReportNode,
   generateReportNode,
   generateSqlNode,
+  groundingCheckNode,
   intentClassifyNode,
   loadContextNode,
+  ragPrepareNode,
   ragQualityGateNode,
   ragRetrieveNode,
   refuseNode,
+  routeAfterExecute,
+  routeAfterGrounding,
   routeAfterIntent,
   routeAfterQualityGate,
-  routeAfterReport,
+  routeAfterSecurity,
   routeAfterValidate,
+  securityGuardNode,
   streamOutputNode,
+  summarizeResultNode,
   templateMatchNode,
   validateResultNode,
 } from './nodes.js';
@@ -42,25 +50,37 @@ function wrap(handler: (s: WorkflowGraphState, d: WorkflowDeps) => Promise<Parti
 
 export function buildWorkflowGraph(_deps: WorkflowDeps, checkpointer?: BaseCheckpointSaver) {
   const graph = new StateGraph(WorkflowAnnotation)
+    .addNode('security_guard', wrap(securityGuardNode))
     .addNode('load_context', wrap(loadContextNode))
     .addNode('template_match', wrap(templateMatchNode))
     .addNode('intent_classify', wrap(intentClassifyNode))
+    .addNode('rag_prepare', wrap(ragPrepareNode))
     .addNode('rag_retrieve', wrap(ragRetrieveNode))
     .addNode('rag_quality_gate', wrap(ragQualityGateNode))
     .addNode('generate_sql', wrap(generateSqlNode))
     .addNode('generate_report', wrap(generateReportNode))
     .addNode('validate', wrap(validateResultNode))
+    .addNode('execute_report', wrap(executeReportNode))
+    .addNode('summarize', wrap(summarizeResultNode))
+    .addNode('grounding_check', wrap(groundingCheckNode))
+    .addNode('clarify', wrap(clarifyNode))
     .addNode('direct_answer', wrap(directAnswerNode))
     .addNode('refuse', wrap(refuseNode))
     .addNode('stream_output', wrap(streamOutputNode))
-    .addEdge(START, 'load_context')
+    .addEdge(START, 'security_guard')
+    .addConditionalEdges('security_guard', (input: GraphUpdate) => routeAfterSecurity(input.state), {
+      refuse: 'refuse',
+      load_context: 'load_context',
+    })
     .addEdge('load_context', 'template_match')
     .addEdge('template_match', 'intent_classify')
     .addConditionalEdges('intent_classify', (input: GraphUpdate) => routeAfterIntent(input.state), {
       refuse: 'refuse',
+      clarify: 'clarify',
       direct_answer: 'direct_answer',
-      rag_retrieve: 'rag_retrieve',
+      rag_prepare: 'rag_prepare',
     })
+    .addEdge('rag_prepare', 'rag_retrieve')
     .addEdge('rag_retrieve', 'rag_quality_gate')
     .addConditionalEdges('rag_quality_gate', (input: GraphUpdate) => routeAfterQualityGate(input.state), {
       generate_sql: 'generate_sql',
@@ -68,16 +88,26 @@ export function buildWorkflowGraph(_deps: WorkflowDeps, checkpointer?: BaseCheck
       rag_retrieve: 'rag_retrieve',
       refuse: 'refuse',
     })
-    .addConditionalEdges('generate_report', (input: GraphUpdate) => routeAfterReport(input.state), {
-      generate_report: 'generate_report',
-      refuse: 'refuse',
-      validate: 'validate',
-    })
     .addEdge('generate_sql', 'validate')
+    .addEdge('generate_report', 'validate')
     .addConditionalEdges('validate', (input: GraphUpdate) => routeAfterValidate(input.state), {
+      generate_sql: 'generate_sql',
+      generate_report: 'generate_report',
+      execute_report: 'execute_report',
+      summarize: 'summarize',
+      refuse: 'refuse',
+    })
+    .addConditionalEdges('execute_report', (input: GraphUpdate) => routeAfterExecute(input.state), {
+      generate_report: 'generate_report',
+      summarize: 'summarize',
+      refuse: 'refuse',
+    })
+    .addEdge('summarize', 'grounding_check')
+    .addConditionalEdges('grounding_check', (input: GraphUpdate) => routeAfterGrounding(input.state), {
       refuse: 'refuse',
       stream_output: 'stream_output',
     })
+    .addEdge('clarify', 'stream_output')
     .addEdge('direct_answer', 'stream_output')
     .addEdge('refuse', 'stream_output')
     .addEdge('stream_output', END);

@@ -2,6 +2,7 @@ export { DatasourceModel } from './datasource.js';
 export { MetaTableModel } from './meta-table.js';
 export { MetaFieldModel } from './meta-field.js';
 export { FieldSynonymModel } from './field-synonym.js';
+export { BusinessKnowledgeModel } from './business-knowledge.js';
 export { PromptVersionModel } from './prompt-version.js';
 export { SystemSettingModel } from './system-setting.js';
 export { AuditLogModel } from './audit-log.js';

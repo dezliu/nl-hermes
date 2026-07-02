@@ -1,6 +1,6 @@
 import type { Logger } from '@hermes/shared';
 import { getServiceAuthHeaders, HTTP_HEADERS } from '@hermes/shared';
-import type { RetrieveRequest, RetrieveResponse } from '@hermes/contracts';
+import type { RetrieveRequest, RetrieveResponse, RetrieveResult } from '@hermes/contracts';
 import { embedText } from '../lib/embedding.js';
 import { OpenSearchClient, collectionToIndex } from '../lib/opensearch.js';
 import { QdrantClient, collectionToQdrant } from '../lib/qdrant.js';
@@ -57,7 +57,7 @@ export class RetrieveService {
       settings.rrfK,
     );
 
-    let results = fused.map((d) => ({
+    let results: RetrieveResult[] = fused.map((d) => ({
       id: d.id,
       content: d.content,
       score: Number(d.score.toFixed(4)),

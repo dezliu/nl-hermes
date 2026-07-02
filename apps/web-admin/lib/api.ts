@@ -46,6 +46,88 @@ export const metaApi = {
   listSettings: () => request<{ items: unknown[] }>(METADATA_URL, '/v1/settings'),
 };
 
+export type BusinessKnowledgeItem = {
+  id: string;
+  title: string;
+  category: 'glossary' | 'metric' | 'rule' | 'faq';
+  content: string;
+  status: 'active' | 'archived';
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export const businessKnowledgeApi = {
+  list: (params?: { status?: string; category?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.category) qs.set('category', params.category);
+    const q = qs.toString();
+    return request<{ items: BusinessKnowledgeItem[] }>(
+      METADATA_URL,
+      `/v1/business-knowledge${q ? `?${q}` : ''}`,
+    );
+  },
+  create: (body: Omit<BusinessKnowledgeItem, 'id' | 'createdAt' | 'updatedAt'>) =>
+    request<{ item: BusinessKnowledgeItem }>(METADATA_URL, '/v1/business-knowledge', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: Partial<BusinessKnowledgeItem>) =>
+    request<{ item: BusinessKnowledgeItem }>(METADATA_URL, `/v1/business-knowledge/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+};
+
+export type SqlTemplateItem = {
+  id: string;
+  name: string;
+  scenarioDescription: string;
+  sqlBody: string;
+  score?: number | null;
+  inLibrary: boolean;
+  status: 'draft' | 'active' | 'archived';
+  usageCount?: number;
+};
+
+export type ReportTemplateItem = SqlTemplateItem & {
+  chartType: 'line' | 'bar' | 'table';
+  chartConfig?: Record<string, string> | null;
+};
+
+export const templateApi = {
+  listSql: (status?: string) =>
+    request<{ items: SqlTemplateItem[] }>(
+      METADATA_URL,
+      `/v1/templates/sql${status ? `?status=${status}` : ''}`,
+    ),
+  createSql: (body: Partial<SqlTemplateItem>) =>
+    request<{ item: SqlTemplateItem }>(METADATA_URL, '/v1/templates/sql', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateSql: (id: string, body: Partial<SqlTemplateItem>) =>
+    request<{ item: SqlTemplateItem }>(METADATA_URL, `/v1/templates/sql/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  listReport: (status?: string) =>
+    request<{ items: ReportTemplateItem[] }>(
+      METADATA_URL,
+      `/v1/templates/report${status ? `?status=${status}` : ''}`,
+    ),
+  createReport: (body: Partial<ReportTemplateItem>) =>
+    request<{ item: ReportTemplateItem }>(METADATA_URL, '/v1/templates/report', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateReport: (id: string, body: Partial<ReportTemplateItem>) =>
+    request<{ item: ReportTemplateItem }>(METADATA_URL, `/v1/templates/report/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+};
+
 export const ragApi = {
   retrieve: (body: unknown) =>
     request<{ results: { id: string; content: string; score: number; matchReason?: string }[] }>(

@@ -7,6 +7,8 @@ import type { ReactNode } from 'react';
 const NAV = [
   { href: '/datasources', label: '数据源管理' },
   { href: '/metadata', label: '表元数据' },
+  { href: '/business-knowledge', label: '业务知识' },
+  { href: '/templates', label: '模板管理' },
   { href: '/prompts', label: '系统 Prompt' },
   { href: '/search-test', label: '向量检索测试' },
   { href: '/eval', label: '离线评估' },

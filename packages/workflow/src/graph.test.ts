@@ -56,7 +56,7 @@ describe('workflow routing', () => {
       checkpointId: 'c1',
     });
     state.intent = 'needs_generation';
-    expect(routeAfterIntent(state)).toBe('rag_retrieve');
+    expect(routeAfterIntent(state)).toBe('rag_prepare');
   });
 
   it('passes quality gate when score high enough', () => {
