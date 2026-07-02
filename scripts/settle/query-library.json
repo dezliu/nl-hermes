@@ -1,0 +1,163 @@
+{
+  "tables": [
+    {
+      "physicalName": "hst_bill",
+      "description": "结算账单主表，记录账期、收付款方与账单状态",
+      "fields": [
+        { "physicalName": "bill_no", "synonyms": ["账单号", "账单编号"] },
+        { "physicalName": "bill_type", "synonyms": ["账单类型", "费用类型"] },
+        { "physicalName": "actual_bill_amount", "synonyms": ["账单金额", "结算金额"] },
+        { "physicalName": "bill_status", "synonyms": ["账单状态", "结算状态"] },
+        { "physicalName": "pay_object", "synonyms": ["付款方", "支付方"] },
+        { "physicalName": "rec_object", "synonyms": ["收款方", "接收方"] },
+        { "physicalName": "business_begin_time", "synonyms": ["账期开始", "业务开始时间"] },
+        { "physicalName": "business_end_time", "synonyms": ["账期结束", "业务结束时间"] }
+      ]
+    },
+    {
+      "physicalName": "hst_bill_item",
+      "description": "结算账单明细，最小结算粒度",
+      "fields": [
+        { "physicalName": "bill_no", "synonyms": ["账单号"] },
+        { "physicalName": "amount", "synonyms": ["明细金额", "金额"] },
+        { "physicalName": "trade_code", "synonyms": ["交易单号", "关联交易"] },
+        { "physicalName": "status", "synonyms": ["明细状态"] },
+        { "physicalName": "pay_status", "synonyms": ["支付状态", "代扣状态"] },
+        { "physicalName": "alignment_flag", "synonyms": ["对账结果", "对账标记"] },
+        { "physicalName": "pay_object", "synonyms": ["付款方"] },
+        { "physicalName": "rec_object", "synonyms": ["收款方"] }
+      ]
+    },
+    {
+      "physicalName": "hst_order",
+      "description": "结算主订单，业务触发的结算请求",
+      "fields": [
+        { "physicalName": "order_code", "synonyms": ["订单号", "结算订单号"] },
+        { "physicalName": "order_type", "synonyms": ["订单类型", "结算类型"] },
+        { "physicalName": "object_code", "synonyms": ["分表键", "门店编号", "对象编号"] },
+        { "physicalName": "order_amount", "synonyms": ["订单金额"] },
+        { "physicalName": "order_status", "synonyms": ["订单状态"] },
+        { "physicalName": "business_time", "synonyms": ["业务时间"] }
+      ]
+    },
+    {
+      "physicalName": "hst_pay_order",
+      "description": "支付代扣子单，订单拆分后的执行单元",
+      "fields": [
+        { "physicalName": "pay_code", "synonyms": ["支付流水号", "代扣单号"] },
+        { "physicalName": "order_code", "synonyms": ["主单号", "订单号"] },
+        { "physicalName": "pay_amount", "synonyms": ["支付金额", "代扣金额"] },
+        { "physicalName": "pay_status", "synonyms": ["支付状态"] },
+        { "physicalName": "pay_object", "synonyms": ["付款方"] },
+        { "physicalName": "rec_object", "synonyms": ["收款方"] }
+      ]
+    },
+    {
+      "physicalName": "hst_stock_record",
+      "description": "派费库存源数据，包裹入库触发结算",
+      "fields": [
+        { "physicalName": "serial_number", "synonyms": ["库存单号", "流水号"] },
+        { "physicalName": "depot_code", "synonyms": ["门店编号", "驿站编号"] },
+        { "physicalName": "courier_code", "synonyms": ["业务员编号", "快递员编号"] },
+        { "physicalName": "settle_status", "synonyms": ["结算状态"] },
+        { "physicalName": "upload_date", "synonyms": ["入库时间", "上传时间"] }
+      ]
+    },
+    {
+      "physicalName": "hwt_trade_info",
+      "description": "钱包交易主表，记录代扣、转账等资金操作",
+      "fields": [
+        { "physicalName": "trade_code", "synonyms": ["交易单号", "流水号"] },
+        { "physicalName": "trade_type", "synonyms": ["交易类型"] },
+        { "physicalName": "amount", "synonyms": ["交易金额", "金额"] },
+        { "physicalName": "trade_status", "synonyms": ["交易状态"] },
+        { "physicalName": "biz_code", "synonyms": ["业务编号"] },
+        { "physicalName": "finish_time", "synonyms": ["完成时间"] }
+      ]
+    },
+    {
+      "physicalName": "hwt_account_change_log",
+      "description": "账户余额变动流水",
+      "fields": [
+        { "physicalName": "trade_code", "synonyms": ["关联交易单号"] },
+        { "physicalName": "change_amount", "synonyms": ["变动金额"] },
+        { "physicalName": "balance_after", "synonyms": ["变动后余额", "余额"] }
+      ]
+    },
+    {
+      "physicalName": "hwt_sub_account",
+      "description": "钱包子账户，存储可用与冻结余额",
+      "fields": [
+        { "physicalName": "sub_account_code", "synonyms": ["子账户编码"] },
+        { "physicalName": "balance", "synonyms": ["可用余额", "余额"] },
+        { "physicalName": "frozen_balance", "synonyms": ["冻结余额"] },
+        { "physicalName": "biz_code", "synonyms": ["业务编号", "门店号"] }
+      ]
+    },
+    {
+      "physicalName": "fund_flow",
+      "description": "跨系统资金流水账务记录",
+      "fields": [
+        { "physicalName": "business_id", "synonyms": ["流水号", "幂等号"] },
+        { "physicalName": "amount", "synonyms": ["金额", "交易金额"] },
+        { "physicalName": "in_ex_type", "synonyms": ["收支类型", "收入支出"] },
+        { "physicalName": "settlement_type_code", "synonyms": ["结算类型"] }
+      ]
+    },
+    {
+      "physicalName": "nl_courier",
+      "description": "业务员基础信息",
+      "fields": [
+        { "physicalName": "staff_code", "synonyms": ["业务员编号", "员工号"] },
+        { "physicalName": "name", "synonyms": ["姓名", "业务员姓名"] },
+        { "physicalName": "depot_code", "synonyms": ["所属门店", "门店编号"] }
+      ]
+    },
+    {
+      "physicalName": "nl_courier_wallet",
+      "description": "业务员钱包余额",
+      "fields": [
+        { "physicalName": "staff_code", "synonyms": ["业务员编号"] },
+        { "physicalName": "balance", "synonyms": ["余额", "可用余额"] },
+        { "physicalName": "frozen_balance", "synonyms": ["冻结余额"] }
+      ]
+    },
+    {
+      "physicalName": "nl_store_fund_account",
+      "description": "门店资金账户",
+      "fields": [
+        { "physicalName": "depot_code", "synonyms": ["门店编号"] },
+        { "physicalName": "balance", "synonyms": ["余额"] },
+        { "physicalName": "frozen_balance", "synonyms": ["冻结余额"] }
+      ]
+    },
+    {
+      "physicalName": "nl_store_fund_account_log",
+      "description": "门店资金变动流水",
+      "fields": [
+        { "physicalName": "depot_code", "synonyms": ["门店编号"] },
+        { "physicalName": "trade_code", "synonyms": ["交易号"] },
+        { "physicalName": "change_amount", "synonyms": ["变动金额"] },
+        { "physicalName": "balance_after", "synonyms": ["变动后余额"] }
+      ]
+    },
+    {
+      "physicalName": "keeper_task_info",
+      "description": "数据核对任务配置",
+      "fields": [
+        { "physicalName": "task_code", "synonyms": ["任务编号"] },
+        { "physicalName": "task_name", "synonyms": ["任务名称"] },
+        { "physicalName": "task_type", "synonyms": ["任务类型"] }
+      ]
+    },
+    {
+      "physicalName": "keeper_check_error_detail",
+      "description": "核对异常明细",
+      "fields": [
+        { "physicalName": "business_id", "synonyms": ["业务ID"] },
+        { "physicalName": "content", "synonyms": ["异常内容", "差异描述"] },
+        { "physicalName": "source_type", "synonyms": ["来源类型"] }
+      ]
+    }
+  ]
+}

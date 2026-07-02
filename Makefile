@@ -1,4 +1,4 @@
-.PHONY: help up down build migrate seed dev test lint logs clean install infra mysql-up health
+.PHONY: help up down build migrate seed seed-if-needed dev test lint logs clean install infra mysql-up health
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -25,10 +25,13 @@ mysql-up: ## 仅启动 MySQL（供 migrate 使用）
 migrate: mysql-up ## 执行数据库迁移（先启动 MySQL，宿主机连 localhost:3307）
 	MYSQL_HOST=localhost MYSQL_PORT=3307 pnpm migrate
 
-seed: ## 导入演示数据
-	@echo "Seed not yet implemented (Phase 2)"
+seed: mysql-up ## 导入结算演示数据（hermes_settle + 元数据 + 向量索引，强制重跑）
+	MYSQL_HOST=localhost MYSQL_PORT=3307 MYSQL_ROOT_PASSWORD=hermes_root pnpm seed:settle --force
 
-dev: infra ## 本地开发：infra + pnpm dev
+seed-if-needed: migrate ## 首次导入结算演示数据（已执行则跳过）
+	MYSQL_HOST=localhost MYSQL_PORT=3307 MYSQL_ROOT_PASSWORD=hermes_root pnpm seed:settle:if-needed
+
+dev: infra seed-if-needed ## 本地开发：infra + migrate + 首次 seed + pnpm dev
 	@echo "管理后台: http://localhost:3002/admin"
 	@echo "健康检查: make health"
 	MYSQL_HOST=localhost MYSQL_PORT=3307 pnpm dev
@@ -69,4 +72,5 @@ logs: ## 查看容器日志
 
 clean: ## 清理构建产物
 	pnpm clean
+	rm -rf .hermes/settle-seed.done
 	docker compose down -v 2>/dev/null || true

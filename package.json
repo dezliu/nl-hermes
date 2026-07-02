@@ -12,7 +12,9 @@
     "test:perf": "pnpm --filter @hermes/performance test",
     "lint": "turbo lint",
     "clean": "turbo clean && rm -rf node_modules",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "seed:settle": "tsx scripts/seed-settle.ts",
+    "seed:settle:if-needed": "tsx scripts/seed-settle.ts --if-needed"
   },
   "dependencies": {
     "@hermes/shared": "workspace:*",

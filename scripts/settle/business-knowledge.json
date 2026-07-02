@@ -1,0 +1,92 @@
+[
+  {
+    "title": "派费",
+    "category": "glossary",
+    "content": "派费是包裹入库后，业务员或网点向门店支付的配送费用。派费结算通常由库存记录触发，生成结算订单并拆分为支付子单与账单明细。"
+  },
+  {
+    "title": "bill 与 bill_item 的区别",
+    "category": "glossary",
+    "content": "bill（结算账单）是账期归集后的财务单据；bill_item（账单明细）是最小结算单元。代扣成功后先生成 bill_item（bill_no 可能为空），账期到达后再批量归集为 bill。"
+  },
+  {
+    "title": "参与方角色",
+    "category": "glossary",
+    "content": "结算参与方包括：门店（STORE）、业务员（COURIER）、经营老板（BOSS）、代理商（AGENT）、网点（SITE）、总部（HQ）。在 hst_bill 与 hst_pay_order 中通过 pay_object_type/rec_object_type 标识。"
+  },
+  {
+    "title": "order_type 常见类型",
+    "category": "glossary",
+    "content": "hst_order.order_type 常见值：COURIER_DELIVERY_FEE（业务员派费）、LOCKER_USAGE_FEE（格口使用费）、CABINET_OVERTIME_FEE（超期费）、SHOP_DELIVERY_FEE_SITE（网点派费）、INSURANCE_FEE_PAYMENT（门店保险）。"
+  },
+  {
+    "title": "bill_status 状态流转",
+    "category": "rule",
+    "content": "hst_bill.bill_status 流转：0创建 → 1待对账 → 2对账中 → 3对账完成 → 4待业务审核 → 6业务审核通过 → 7待财务审核 → 9财务审核通过 → 10待结算 → 11结算中 → 12已结算冻结 → 13结算成功。异常状态：-1对账异常。"
+  },
+  {
+    "title": "bill_item 状态含义",
+    "category": "rule",
+    "content": "hst_bill_item.status：0待确认 → 1待结算（代扣成功）→ 2结算中 → 3已结算。pay_status 表示代扣进度：PAYING/SUCCESS/FAILED。"
+  },
+  {
+    "title": "幂等键设计",
+    "category": "rule",
+    "content": "结算链路多层幂等：hst_order.biz_order_code 防重复建单；hst_pay_order.pay_code 防重复代扣；hst_bill_item.unique_code 防重复明细；hwt_trade_info.trade_code 全局唯一；fund_flow.business_id 账务流水幂等。"
+  },
+  {
+    "title": "待结算金额",
+    "category": "metric",
+    "content": "待结算金额 = SUM(hst_bill_item.amount) WHERE status=1（待结算）AND pay_status='SUCCESS' AND bill_no IS NULL。可按 rec_object（收款方）或 pay_object（付款方）分组统计。"
+  },
+  {
+    "title": "代扣成功率",
+    "category": "metric",
+    "content": "代扣成功率 = COUNT(hst_pay_order WHERE pay_status='SUCCESS') / COUNT(hst_pay_order WHERE pay_status IN ('SUCCESS','FAILED','PAYING'))。可按 object_code（门店）维度统计。"
+  },
+  {
+    "title": "对账异常笔数",
+    "category": "metric",
+    "content": "对账异常笔数 = COUNT(hst_bill WHERE bill_status=-1) + COUNT(hst_bill_item WHERE alignment_flag='EXCEPTION') + COUNT(keeper_check_error_detail)。"
+  },
+  {
+    "title": "结算模块与钱包模块的关系",
+    "category": "faq",
+    "content": "结算模块负责「算什么钱、分给谁」：生成 hst_order → hst_pay_order → hst_bill_item → hst_bill。钱包模块负责「钱在谁账户、怎么扣/打」：通过 MQ 驱动 hwt_trade_info 执行代扣，结果回写 bill_item.trade_code 与 fund_flow。"
+  },
+  {
+    "title": "bill 何时生成",
+    "category": "faq",
+    "content": "bill 不在 order 创建时生成。代扣成功后 bill_item 状态变为待结算（bill_no 为空）；账期到达后由日账单任务批量归集：先 INSERT bill 头，再批量 UPDATE bill_item.bill_no 并累加金额。"
+  },
+  {
+    "title": "派费数据来源",
+    "category": "faq",
+    "content": "派费结算源数据来自 hst_stock_record（库存记录），包含 depot_code（门店）、courier_code（业务员）、express_company_code（快递公司）。入库事件匹配结算规则后生成 COURIER_DELIVERY_FEE 类型订单。"
+  },
+  {
+    "title": "order 与 pay_order 的关系",
+    "category": "faq",
+    "content": "hst_order 是一次业务触发的结算请求；OrderSplitHandler 按规则拆分为 1~N 条 hst_pay_order。每个 pay_order 对应一条 bill_item，并驱动一次钱包代扣。"
+  },
+  {
+    "title": "门店资金账户与钱包子账户",
+    "category": "glossary",
+    "content": "nl_store_fund_account 记录门店侧资金余额；hwt_sub_account 记录钱包体系子账户余额。两者可通过 depot_code / biz_code 关联到同一门店，但对账时需注意数据来源差异。"
+  },
+  {
+    "title": "核对任务类型",
+    "category": "glossary",
+    "content": "keeper_task_info.task_type：0=多方核对（如账单 vs 交易），1=业务规则核对（如代扣超时检测）。异常写入 keeper_check_error_detail。"
+  },
+  {
+    "title": "已结算账单查询",
+    "category": "faq",
+    "content": "查询已结算账单：SELECT * FROM hst_bill WHERE bill_status=13。关联明细：JOIN hst_bill_item ON hst_bill.bill_no=hst_bill_item.bill_no。关联交易：JOIN hwt_trade_info ON hst_bill_item.trade_code=hwt_trade_info.trade_code。"
+  },
+  {
+    "title": "业务员钱包余额预警",
+    "category": "rule",
+    "content": "业务员代扣前需校验 nl_courier_wallet.balance 是否充足。余额不足时代扣失败，bill_item.pay_status 保持 PAYING 或 FAILED，需充值后重试。"
+  }
+]

@@ -69,7 +69,17 @@ make migrate
 
 ```bash
 make install
-make dev          # 启动 infra 容器 + pnpm dev 热重载
+make dev          # 启动 infra + 迁移 + 首次自动导入结算演示数据 + pnpm dev 热重载
+```
+
+首次执行 `make dev` 时会自动运行结算演示数据 Seed（创建 `hermes_settle` 业务库、注册数据源、同步元数据、写入向量索引）。完成后会在本地写入标记文件 `.hermes/settle-seed.done`，后续 `make dev` 将跳过 Seed。
+
+如需手动重新导入演示数据：
+
+```bash
+make seed              # 强制全量重跑 Seed
+pnpm seed:settle --force
+pnpm seed:settle --keep-db --force   # 保留 hermes_settle 库，仅重跑元数据与索引
 ```
 
 各服务端口：
@@ -90,13 +100,37 @@ make dev          # 启动 infra 容器 + pnpm dev 热重载
 
 ```bash
 make help      # 查看所有命令
+make migrate   # 执行 Hermes 元数据/会话/评估库迁移
+make seed      # 强制导入结算演示数据
 make build     # 构建
 make test      # 测试
 make lint      # 类型检查
 make logs      # 容器日志
 make down      # 停止
-make clean     # 清理
+make clean     # 清理（含 settle seed 标记与 Docker 卷）
 ```
+
+### 结算演示数据 Seed
+
+脚本位于 [`scripts/seed-settle.ts`](scripts/seed-settle.ts)，配套 SQL 与配置在 `scripts/settle/`。
+
+| 命令 | 说明 |
+|------|------|
+| `make dev` | 首次自动执行 Seed（`--if-needed`） |
+| `make seed` | 强制全量导入 |
+| `pnpm seed:settle:if-needed` | 仅未执行过时导入 |
+| `pnpm seed:settle --force` | 强制全量导入 |
+| `pnpm seed:settle --keep-db` | 跳过 MySQL 重建，仅同步元数据与索引 |
+| `pnpm seed:settle --skip-index` | 跳过 Qdrant/OpenSearch 索引 |
+
+Seed 完成后会创建：
+
+- MySQL 库 `hermes_settle`（18 张结算核心表 + 模拟数据）
+- Hermes 数据源「结算演示库」及元数据同步
+- 查询库字段、业务知识条目
+- Qdrant 集合 `hermes_metadata`、`hermes_business` 向量索引
+
+执行标记：`.hermes/settle-seed.done`（本地文件，已 gitignore）。`make clean` 会删除该标记。
 
 ## 项目结构
 
@@ -118,6 +152,9 @@ packages/
   workflow/           # 工作流节点/状态
   orm-schemas/        # ORM 模型
   ui-shared/          # 前端共享组件
+scripts/
+  seed-settle.ts      # 结算演示数据一键 Seed
+  settle/             # Seed SQL、查询库与业务知识配置
 ```
 
 ## 文档
