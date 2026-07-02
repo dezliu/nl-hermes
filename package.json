@@ -7,6 +7,9 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "test": "turbo test",
+    "test:phase9": "pnpm --filter @hermes/observability test && pnpm --filter @hermes/contract-tests test && pnpm --filter @hermes/performance test && pnpm --filter @hermes/report-mcp-adapter test",
+    "test:contract": "pnpm --filter @hermes/contract-tests test",
+    "test:perf": "pnpm --filter @hermes/performance test",
     "lint": "turbo lint",
     "clean": "turbo clean && rm -rf node_modules",
     "migrate": "tsx scripts/migrate.ts"

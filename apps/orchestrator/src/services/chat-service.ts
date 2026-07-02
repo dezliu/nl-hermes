@@ -21,6 +21,7 @@ import {
 import { createLlmProviderFromEnv } from '@hermes/llm-tools';
 import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { GenerationLock, InterruptRegistry, RedisLike } from '../lib/redis.js';
+import type { TemplateApplyService } from './template-apply-service.js';
 
 export type ChatServiceOptions = {
   logger: Logger;
@@ -29,6 +30,7 @@ export type ChatServiceOptions = {
   interrupts: InterruptRegistry;
   redis: RedisLike | null;
   dbEnabled?: boolean;
+  templateApply?: TemplateApplyService;
 };
 
 export class ChatService {
@@ -52,6 +54,8 @@ export class ChatService {
       role: 'user',
       content: req.query,
       mode: req.mode,
+      templateId: req.templateId,
+      templateType: req.templateType,
     });
 
     const checkpointId = await this.opts.repo.saveCheckpoint({
@@ -100,6 +104,7 @@ export class ChatService {
     const history = await this.opts.repo.listHistory(conversationId);
     const checkpointId = randomUUID();
 
+    const usingTemplate = Boolean(input.templateId && input.templateType && input.templateParameters);
     const initial = createInitialState({
       sessionId: conversationId,
       runId,
@@ -115,6 +120,49 @@ export class ChatService {
     let finalState: WorkflowGraphState = initial;
 
     try {
+      if (usingTemplate && this.opts.templateApply) {
+        const applied = await this.opts.templateApply.run(
+          {
+            mode: input.mode,
+            query: input.query,
+            templateId: input.templateId!,
+            templateType: input.templateType!,
+            templateParameters: input.templateParameters!,
+            traceId,
+          },
+          write,
+        );
+
+        const messageId = await this.opts.repo.addMessage({
+          conversationId,
+          role: 'assistant',
+          content: applied.content,
+          mode: input.mode,
+          status: 'completed',
+          templateId: input.templateId,
+          templateType: input.templateType,
+          metadata: {
+            appliedTemplate: true,
+            sql: applied.sql,
+            chartConfig: applied.chartConfig,
+          },
+        });
+
+        await this.opts.repo.updateCheckpoint(runId, { status: 'completed' });
+        await this.opts.repo.touchConversation(conversationId);
+
+        write({
+          type: 'done',
+          runId,
+          messageId,
+          conversationId,
+          status: 'completed',
+          content: applied.content,
+          metadata: { appliedTemplate: true, sql: applied.sql },
+        });
+        return;
+      }
+
       finalState = await runWorkflow(initial, {
         rag,
         report,

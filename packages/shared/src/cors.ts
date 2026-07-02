@@ -1,4 +1,5 @@
 import cors from 'cors';
+import { HTTP_HEADERS } from './constants.js';
 
 const DEFAULT_BROWSER_ORIGINS = [
   'http://localhost:3001',
@@ -26,7 +27,13 @@ export function createBrowserCorsOptions(): cors.CorsOptions {
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-trace-id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      HTTP_HEADERS.TRACE_ID,
+      HTTP_HEADERS.SERVICE_TOKEN,
+      HTTP_HEADERS.SERVICE_NAME,
+    ],
   };
 }
 

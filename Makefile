@@ -40,11 +40,26 @@ health: ## 检查各服务健康状态（需 make dev 运行中）
 	@curl -sf http://localhost:4020/health | jq . || echo "  ✗ 未响应"
 	@echo "== report-service :4030 =="
 	@curl -sf http://localhost:4030/health | jq . || echo "  ✗ 未响应"
+	@echo "== eval-service :4040 =="
+	@curl -sf http://localhost:4040/health | jq . || echo "  ✗ 未响应"
+	@curl -sf http://localhost:4040/v1/eval/meta | jq . || echo "  ✗ eval API 未加载（4040 可能是旧 stub 进程，执行: lsof -ti :4040 | xargs kill -9 后重启 make dev）"
 	@echo "== web-admin :3002 =="
 	@curl -sf -o /dev/null -w "  HTTP %{http_code} → /admin\n" http://localhost:3002/admin || echo "  ✗ 未响应"
 
 test: ## 运行测试
 	pnpm test
+
+test-phase9: ## Phase 9 质量验收（契约 + 性能 + 可观测性 + MCP）
+	pnpm --filter @hermes/observability test
+	pnpm --filter @hermes/contract-tests test
+	pnpm --filter @hermes/performance test
+	pnpm --filter @hermes/report-mcp-adapter test
+
+test-contract: ## 跨服务契约测试
+	pnpm --filter @hermes/contract-tests test
+
+test-perf: ## 性能 SLA 验收测试
+	pnpm --filter @hermes/performance test
 
 lint: ## 代码检查
 	pnpm lint

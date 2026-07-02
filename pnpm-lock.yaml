@@ -30,6 +30,12 @@ importers:
 
   apps/eval-service:
     dependencies:
+      '@hermes/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@hermes/orm-schemas':
+        specifier: workspace:*
+        version: link:../../packages/orm-schemas
       '@hermes/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -39,6 +45,15 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.22.2
+      knex:
+        specifier: ^3.1.0
+        version: 3.3.0(mysql2@3.22.5(@types/node@22.20.0))
+      mysql2:
+        specifier: ^3.11.5
+        version: 3.22.5(@types/node@22.20.0)
+      objection:
+        specifier: ^3.1.5
+        version: 3.1.5(knex@3.3.0(mysql2@3.22.5(@types/node@22.20.0)))
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -49,6 +64,9 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.0
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       tsx:
         specifier: ^4.19.2
         version: 4.22.4
@@ -98,6 +116,9 @@ importers:
 
   apps/metadata-service:
     dependencies:
+      '@hermes/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@hermes/orm-schemas':
         specifier: workspace:*
         version: link:../../packages/orm-schemas
@@ -116,6 +137,9 @@ importers:
       mysql2:
         specifier: ^3.11.5
         version: 3.22.5(@types/node@22.20.0)
+      objection:
+        specifier: ^3.1.5
+        version: 3.1.5(knex@3.3.0(mysql2@3.22.5(@types/node@22.20.0)))
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -391,6 +415,37 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.0)
 
+  packages/contract-tests:
+    dependencies:
+      '@hermes/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@hermes/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@hermes/workflow':
+        specifier: workspace:*
+        version: link:../workflow
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.0
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)
+
   packages/contracts:
     devDependencies:
       typescript:
@@ -409,6 +464,25 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)
+
+  packages/observability:
+    dependencies:
+      '@hermes/shared':
+        specifier: workspace:*
+        version: link:../shared
+      langfuse:
+        specifier: ^3.32.0
+        version: 3.38.20
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -437,6 +511,65 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/performance:
+    dependencies:
+      '@hermes/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@hermes/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.0
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)
+
+  packages/report-mcp-adapter:
+    dependencies:
+      '@hermes/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@hermes/shared':
+        specifier: workspace:*
+        version: link:../shared
+      express:
+        specifier: ^4.21.2
+        version: 4.22.2
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.0
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)
 
   packages/shared:
     dependencies:
@@ -1951,6 +2084,14 @@ packages:
         optional: true
       tedious:
         optional: true
+
+  langfuse-core@3.38.20:
+    resolution: {integrity: sha512-zBKVmQN/1oT5VWZUBYlWzvokIlkC/6mnpgr/2atMyTeAm+jR3ia7w2iJMjlrF5/oG8ukO1s8+LDRCzJpF1QeEA==}
+    engines: {node: '>=18'}
+
+  langfuse@3.38.20:
+    resolution: {integrity: sha512-MAmBAASSzJtmK1O9HQegA1mFsQhT8Yf+OJRGvE7FXkyv3g/eiBE0glLD0Ohg3pkxhoPdggM5SejK7ue9ctlaMA==}
+    engines: {node: '>=18'}
 
   langsmith@0.3.87:
     resolution: {integrity: sha512-XXR1+9INH8YX96FKWc5tie0QixWz6tOqAsAKfcJyPkE0xPep+NDz0IQLR32q4bn10QK3LqD2HN6T3n6z1YLW7Q==}
@@ -4189,6 +4330,14 @@ snapshots:
       mysql2: 3.22.5(@types/node@22.20.0)
     transitivePeerDependencies:
       - supports-color
+
+  langfuse-core@3.38.20:
+    dependencies:
+      mustache: 4.2.0
+
+  langfuse@3.38.20:
+    dependencies:
+      langfuse-core: 3.38.20
 
   langsmith@0.3.87:
     dependencies:

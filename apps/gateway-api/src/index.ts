@@ -8,6 +8,7 @@ const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL ?? 'http://localhost:4010'
 
 const typeDefs = `#graphql
   enum GenerationMode { sql report }
+  enum FeedbackRating { up down }
 
   type ChatSession {
     runId: ID!
@@ -15,9 +16,53 @@ const typeDefs = `#graphql
     checkpointId: ID!
   }
 
+  type TemplateRecommendation {
+    id: ID!
+    name: String!
+    scenarioDescription: String!
+    score: Float!
+    type: GenerationMode!
+  }
+
+  type TemplateDetail {
+    id: ID!
+    name: String!
+    scenarioDescription: String!
+    type: GenerationMode!
+    sqlBody: String!
+    placeholders: [String!]!
+    chartType: String
+  }
+
+  type ConversationSummary {
+    id: ID!
+    title: String!
+    mode: GenerationMode!
+    lastActiveAt: String!
+  }
+
+  type ChatMessageRecord {
+    id: ID!
+    role: String!
+    content: String!
+    mode: GenerationMode!
+    status: String
+    templateId: ID
+    feedbackRating: FeedbackRating
+  }
+
   type Query {
     health: String!
     version: String!
+    matchTemplates(userId: ID!, query: String!, mode: GenerationMode!): [TemplateRecommendation!]!
+    templateDetail(id: ID!, type: GenerationMode!): TemplateDetail
+    conversations(userId: ID!): [ConversationSummary!]!
+    conversationMessages(userId: ID!, conversationId: ID!): [ChatMessageRecord!]!
+  }
+
+  input TemplateParameterInput {
+    key: String!
+    value: String!
   }
 
   input StartChatInput {
@@ -26,6 +71,9 @@ const typeDefs = `#graphql
     conversationId: ID
     query: String!
     mode: GenerationMode!
+    templateId: ID
+    templateType: GenerationMode
+    templateParameters: [TemplateParameterInput!]
   }
 
   input ContinueConversationInput {
@@ -43,10 +91,31 @@ const typeDefs = `#graphql
     conversationId: ID!
   }
 
+  input SubmitFeedbackInput {
+    userId: ID!
+    messageId: ID!
+    rating: FeedbackRating!
+    reason: String
+  }
+
+  input RenameConversationInput {
+    userId: ID!
+    conversationId: ID!
+    title: String!
+  }
+
+  input DeleteConversationInput {
+    userId: ID!
+    conversationId: ID!
+  }
+
   type Mutation {
     startChat(input: StartChatInput!): ChatSession!
     continueConversation(input: ContinueConversationInput!): ChatSession!
     cancelGeneration(input: CancelGenerationInput!): Boolean!
+    submitMessageFeedback(input: SubmitFeedbackInput!): Boolean!
+    renameConversation(input: RenameConversationInput!): ConversationSummary!
+    deleteConversation(input: DeleteConversationInput!): Boolean!
   }
 `;
 
@@ -118,18 +187,102 @@ async function orchPost<T>(path: string, body: unknown, headers: Record<string, 
   return res.json() as Promise<T>;
 }
 
+async function orchGet<T>(path: string, headers: Record<string, string> = {}): Promise<T> {
+  const url = `${ORCHESTRATOR_URL}${path}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      ...withServiceAuth(headers, 'gateway-api'),
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `orchestrator ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function orchPatch<T>(path: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
+  const res = await fetch(`${ORCHESTRATOR_URL}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...withServiceAuth(headers, 'gateway-api'),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `orchestrator ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function orchDelete<T>(path: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
+  const res = await fetch(`${ORCHESTRATOR_URL}${path}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...withServiceAuth(headers, 'gateway-api'),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `orchestrator ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 const resolvers = {
   Query: {
     health: () => 'ok',
     version: () => '0.1.0',
+    matchTemplates: async (_: unknown, { userId, query, mode }: { userId: string; query: string; mode: string }) => {
+      void userId;
+      const data = await orchPost<{ results: unknown[] }>('/v1/templates/match', { query, mode, topK: 1 });
+      return data.results;
+    },
+    templateDetail: async (_: unknown, { id, type }: { id: string; type: string }) => {
+      const data = await orchGet<{ item: unknown }>(`/v1/templates/${type}/${id}`);
+      return data.item;
+    },
+    conversations: async (_: unknown, { userId }: { userId: string }) => {
+      const data = await orchGet<{ items: unknown[] }>(`/v1/conversations?userId=${encodeURIComponent(userId)}`);
+      return data.items;
+    },
+    conversationMessages: async (
+      _: unknown,
+      { userId, conversationId }: { userId: string; conversationId: string },
+    ) => {
+      const data = await orchGet<{ items: unknown[] }>(
+        `/v1/conversations/${conversationId}/messages?userId=${encodeURIComponent(userId)}`,
+      );
+      return data.items;
+    },
   },
   Mutation: {
-    startChat: (_: unknown, { input }: { input: Record<string, unknown> }) =>
-      orchPost('/v1/chat/start', input),
+    startChat: (_: unknown, { input }: { input: Record<string, unknown> }) => {
+      const params = input.templateParameters as { key: string; value: string }[] | undefined;
+      const body = {
+        ...input,
+        templateParameters: params?.reduce<Record<string, string>>((acc, item) => {
+          acc[item.key] = item.value;
+          return acc;
+        }, {}),
+      };
+      return orchPost('/v1/chat/start', body);
+    },
     continueConversation: (_: unknown, { input }: { input: Record<string, unknown> }) =>
       orchPost('/v1/chat/continue', input),
     cancelGeneration: (_: unknown, { input }: { input: Record<string, unknown> }) =>
       orchPost<{ ok: boolean }>('/v1/chat/cancel', input).then((r) => r.ok),
+    submitMessageFeedback: (_: unknown, { input }: { input: Record<string, unknown> }) =>
+      orchPost<{ ok: boolean }>(`/v1/messages/${input.messageId}/feedback`, input).then((r) => r.ok),
+    renameConversation: (_: unknown, { input }: { input: Record<string, unknown> }) =>
+      orchPatch<{ item: unknown }>(`/v1/conversations/${input.conversationId}`, input).then((r) => r.item),
+    deleteConversation: (_: unknown, { input }: { input: Record<string, unknown> }) =>
+      orchDelete<{ ok: boolean }>(`/v1/conversations/${input.conversationId}`, input).then((r) => r.ok),
   },
 };
 

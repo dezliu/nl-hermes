@@ -8,6 +8,12 @@ import { PromptService } from './services/prompt-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { TemplateService } from './services/template-service.js';
 import { mountRoutes } from './routes/index.js';
+import { mountMonitorRoutes } from './routes/monitor-routes.js';
+import { AlertRepository } from './repositories/alert-repository.js';
+import { AlertService } from './services/alert-service.js';
+import { MonitorService } from './services/monitor-service.js';
+import { MetricsStore } from './lib/metrics-store.js';
+import { ChatMetricsClient } from './lib/chat-metrics-client.js';
 
 export function createMetadataApp(options: { enableServiceAuth?: boolean; serviceToken?: string } = {}) {
   const logger = createLogger({ service: 'metadata-service' });
@@ -22,8 +28,14 @@ export function createMetadataApp(options: { enableServiceAuth?: boolean; servic
     template: new TemplateService(repos, logger),
   };
 
+  const alertRepo = new AlertRepository();
+  const alertService = new AlertService(alertRepo, logger);
+  const metricsStore = new MetricsStore();
+  const monitorService = new MonitorService(metricsStore, new ChatMetricsClient(), alertService, logger);
+
   const app = createServiceApp('metadata-service', options);
   mountRoutes(app, ctx);
+  mountMonitorRoutes(app, { monitor: monitorService, alerts: alertService });
 
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     logger.error('request.error', { err: err.message });

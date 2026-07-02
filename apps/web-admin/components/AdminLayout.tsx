@@ -9,6 +9,8 @@ const NAV = [
   { href: '/metadata', label: '表元数据' },
   { href: '/prompts', label: '系统 Prompt' },
   { href: '/search-test', label: '向量检索测试' },
+  { href: '/eval', label: '离线评估' },
+  { href: '/alerts', label: '告警信息' },
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {

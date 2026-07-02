@@ -4,6 +4,12 @@ import { createChatRepository } from './repositories/chat-repository.js';
 import { ChatService } from './services/chat-service.js';
 import { createInMemoryRedis, createRedisClient, GenerationLock, InterruptRegistry } from './lib/redis.js';
 import { mountChatRoutes } from './routes/index.js';
+import { mountUserFeatureRoutes } from './routes/user-features.js';
+import { createConversationService } from './services/conversation-service.js';
+import { createFeedbackService } from './services/feedback-service.js';
+import { createTemplateRecommendationService } from './services/template-recommendation-service.js';
+import { createTemplateApplyService } from './services/template-apply-service.js';
+import { createMetadataTemplateClient } from './lib/metadata-template-client.js';
 
 export type OrchestratorAppOptions = {
   enableServiceAuth?: boolean;
@@ -16,6 +22,8 @@ export async function createOrchestratorApp(options: OrchestratorAppOptions = {}
   const logger = createLogger({ service: 'orchestrator' });
   const redis = options.redis ?? (await createRedisClient()) ?? createInMemoryRedis();
   const repo = createChatRepository(options.dbEnabled !== false);
+  const metadataTemplates = createMetadataTemplateClient();
+  const templateApply = createTemplateApplyService(metadataTemplates);
   const chat = new ChatService({
     logger,
     repo,
@@ -23,10 +31,17 @@ export async function createOrchestratorApp(options: OrchestratorAppOptions = {}
     interrupts: new InterruptRegistry(),
     redis,
     dbEnabled: options.dbEnabled !== false,
+    templateApply,
   });
 
   const app = createServiceApp('orchestrator', options);
   mountChatRoutes(app, chat);
+  mountUserFeatureRoutes(app, {
+    conversations: createConversationService(repo),
+    feedback: createFeedbackService(repo),
+    templateRecommendations: createTemplateRecommendationService(),
+    templateApply,
+  });
 
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     logger.error('request.error', { err: err.message });

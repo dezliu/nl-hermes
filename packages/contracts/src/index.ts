@@ -119,6 +119,59 @@ export type StartChatRequest = {
   query: string;
   mode: 'sql' | 'report';
   traceId?: string;
+  /** Phase 6: apply template with filled parameters */
+  templateId?: string;
+  templateType?: 'sql' | 'report';
+  templateParameters?: Record<string, string>;
+};
+
+export type TemplateDetail = {
+  id: string;
+  name: string;
+  scenarioDescription: string;
+  type: 'sql' | 'report';
+  sqlBody: string;
+  placeholders: string[];
+  chartType?: 'line' | 'bar' | 'table';
+  chartConfig?: Record<string, unknown>;
+};
+
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  mode: 'sql' | 'report';
+  lastActiveAt: string;
+};
+
+export type ConversationMessageRecord = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  mode: 'sql' | 'report';
+  status?: 'completed' | 'interrupted' | 'failed';
+  templateId?: string | null;
+  templateType?: 'sql' | 'report' | null;
+  feedbackRating?: 'up' | 'down' | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string;
+};
+
+export type SubmitFeedbackRequest = {
+  userId: string;
+  messageId: string;
+  rating: 'up' | 'down';
+  reason?: string;
+};
+
+export type RenameConversationRequest = {
+  userId: string;
+  conversationId: string;
+  title: string;
+};
+
+export type DeleteConversationRequest = {
+  userId: string;
+  conversationId: string;
 };
 
 export type StartChatResponse = {
@@ -156,4 +209,151 @@ export type UserPermissions = {
   allowedTables: string[];
   allowedFields: string[];
   datasourceId?: string;
+};
+
+/** Monitor / alerts (Phase 7) */
+export type AlertLevel = 'info' | 'warning' | 'error' | 'critical';
+export type AlertStatus = 'open' | 'acknowledged' | 'resolved';
+
+export type AlertRecord = {
+  id: string;
+  type: string;
+  level: AlertLevel;
+  title: string;
+  message: string;
+  refType?: string | null;
+  refId?: string | null;
+  status: AlertStatus;
+  createdAt?: string;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+};
+
+export type MetricPoint = {
+  timestamp: string;
+  value: number;
+};
+
+export type CacheHitMetrics = {
+  currentRate: number;
+  previousDayRate: number;
+  trend: MetricPoint[];
+  interpretation?: string;
+};
+
+export type RetrievalQualityAlert = {
+  active: boolean;
+  alertId?: string;
+  triggeredAt?: string;
+  lowScoreRatio?: number;
+  topDomain?: string;
+  suggestion?: string;
+};
+
+export type TokenMetrics = {
+  range: '7d' | '30d';
+  total: number;
+  dailyAverage: number;
+  trend: MetricPoint[];
+};
+
+export type SatisfactionMetrics = {
+  rangeDays: number;
+  upCount: number;
+  downCount: number;
+  satisfactionRate: number;
+  byMode: { mode: 'sql' | 'report'; up: number; down: number; rate: number }[];
+  topDownReasons: { reason: string; count: number }[];
+  updatedAt: string;
+};
+
+export type MonitorDashboard = {
+  cacheHit: CacheHitMetrics;
+  retrievalAlert: RetrievalQualityAlert;
+  tokenUsage: TokenMetrics;
+  satisfaction: SatisfactionMetrics;
+};
+
+export type RecordMetricEvent = {
+  type: 'query' | 'cache_hit' | 'cache_miss' | 'retrieval_score' | 'token_usage';
+  value?: number;
+  metadata?: Record<string, unknown>;
+  timestamp?: string;
+};
+
+/** Offline evaluation (Phase 8) */
+export type EvalSetRecord = {
+  id: string;
+  name: string;
+  description?: string | null;
+  isPreset: boolean;
+  caseCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EvalCaseRecord = {
+  id: string;
+  evalSetId: string;
+  question: string;
+  mode: 'sql' | 'report';
+  expectedTables?: string[] | null;
+  expectedPoints?: string | null;
+  sortOrder: number;
+};
+
+export type EvalRunSummary = {
+  retrievalHitRate: number;
+  generateSuccessRate: number;
+  averageScore: number;
+  lowScoreCount: number;
+  totalCases: number;
+  domainSummary?: string;
+  avgCaseDurationMs?: number;
+};
+
+export type EvalRunRecord = {
+  id: string;
+  evalSetId: string;
+  status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
+  progress: number;
+  summary?: EvalRunSummary | null;
+  startedBy?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  createdAt?: string;
+};
+
+export type EvalResultRecord = {
+  id: string;
+  evalRunId: string;
+  evalCaseId: string;
+  question?: string;
+  mode?: 'sql' | 'report';
+  retrievalHit?: boolean | null;
+  generateSuccess?: boolean | null;
+  score?: number | null;
+  actualOutput?: Record<string, unknown> | null;
+  expectedPoints?: string | null;
+  diffNotes?: string | null;
+};
+
+export type StartEvalRunRequest = {
+  evalSetId: string;
+  startedBy?: string;
+  concurrency?: number;
+};
+
+export type CreateEvalSetRequest = {
+  name: string;
+  description?: string;
+  isPreset?: boolean;
+};
+
+export type UpsertEvalCaseRequest = {
+  question: string;
+  mode: 'sql' | 'report';
+  expectedTables?: string[];
+  expectedPoints?: string;
+  sortOrder?: number;
 };
