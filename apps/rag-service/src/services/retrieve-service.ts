@@ -4,7 +4,7 @@ import type { RetrieveRequest, RetrieveResponse, RetrieveResult } from '@hermes/
 import { embedText } from '../lib/embedding.js';
 import { OpenSearchClient, collectionToIndex } from '../lib/opensearch.js';
 import { QdrantClient, collectionToQdrant } from '../lib/qdrant.js';
-import { reciprocalRankFusion, rerankByQuery } from './fusion.js';
+import { formatRetrieveResults, reciprocalRankFusion, rerankByQuery } from './fusion.js';
 
 export type RetrieveSettings = {
   bm25TopK: number;
@@ -57,18 +57,11 @@ export class RetrieveService {
       settings.rrfK,
     );
 
-    let results: RetrieveResult[] = fused.map((d) => ({
-      id: d.id,
-      content: d.content,
-      score: Number(d.score.toFixed(4)),
-      matchReason: [...d.sources, 'rrf'].join('+'),
-      source: 'rrf' as const,
-    }));
-
-    if (settings.enableRerank && results.length > 0) {
+    let results: RetrieveResult[];
+    if (settings.enableRerank && fused.length > 0) {
       results = rerankByQuery(req.query, fused, settings.rerankTopK);
     } else {
-      results = results.slice(0, settings.rerankTopK);
+      results = formatRetrieveResults(req.query, fused, settings.rerankTopK, 'rrf', 'rrf');
     }
 
     this.logger.info('rag.retrieve.completed', {

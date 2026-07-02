@@ -17,6 +17,12 @@ describe('rag-service API', () => {
       .send({ query: '销售额', collection: 'metadata' });
     expect(res.status).toBe(200);
     expect(res.body.results).toBeInstanceOf(Array);
+    if (res.body.results.length > 0) {
+      const topScore = res.body.results[0].score as number;
+      expect(topScore).toBeGreaterThanOrEqual(0);
+      expect(topScore).toBeLessThanOrEqual(1);
+      expect(topScore).toBeGreaterThan(0.05);
+    }
   });
 
   it('scores retrieval results', async () => {
