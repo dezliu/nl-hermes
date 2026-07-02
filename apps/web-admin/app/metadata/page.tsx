@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Input, Select, Space, Switch, Table, Tag, message } from 'antd';
+import { Button, Input, Select, Space, Switch, Table, Tag, Typography, message } from 'antd';
 import { AdminLayout } from '../../components/AdminLayout';
 import { metaApi, type MetaFieldItem, type MetaTableItem } from '../../lib/api';
 import { useDebouncedMetadataRebuild } from '../../lib/use-debounced-metadata-rebuild';
@@ -16,7 +16,10 @@ export default function MetadataPage() {
   const [fieldCache, setFieldCache] = useState<Record<string, MetaFieldItem[]>>({});
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [rebuilding, setRebuilding] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const { scheduleRebuild, rebuildNow } = useDebouncedMetadataRebuild();
+
+  const activeTables = tables.filter((t) => t.sourceStatus !== 'removed_at_source');
 
   const loadTables = useCallback(async (datasourceId: string) => {
     setLoading(true);
@@ -71,26 +74,112 @@ export default function MetadataPage() {
     }
   };
 
+  const applyTableLibrary = async (
+    row: MetaTableItem,
+    checked: boolean,
+    options?: { deferRebuild?: boolean },
+  ) => {
+    await metaApi.updateTable(row.id, { inQueryLibrary: checked });
+    patchTableLocal(row.id, { inQueryLibrary: checked });
+
+    const fields = await loadFields(row.id);
+    await Promise.all(
+      fields.map((f) => metaApi.updateField(f.id, { inQueryLibrary: checked })),
+    );
+    setFieldCache((prev) => ({
+      ...prev,
+      [row.id]: fields.map((f) => ({ ...f, inQueryLibrary: checked })),
+    }));
+    if (!options?.deferRebuild) scheduleRebuild();
+  };
+
   const toggleTableLibrary = async (row: MetaTableItem, checked: boolean) => {
     try {
-      await metaApi.updateTable(row.id, { inQueryLibrary: checked });
-      patchTableLocal(row.id, { inQueryLibrary: checked });
-
-      const fields = await loadFields(row.id);
-      await Promise.all(
-        fields.map((f) =>
-          metaApi.updateField(f.id, { inQueryLibrary: checked }),
-        ),
-      );
-      setFieldCache((prev) => ({
-        ...prev,
-        [row.id]: fields.map((f) => ({ ...f, inQueryLibrary: checked })),
-      }));
-      scheduleRebuild();
+      await applyTableLibrary(row, checked);
     } catch (e) {
       message.error(e instanceof Error ? e.message : '更新失败');
     }
   };
+
+  const toggleAllTablesLibrary = async (checked: boolean) => {
+    if (activeTables.length === 0) return;
+    setBulkUpdating(true);
+    try {
+      for (const row of activeTables) {
+        await applyTableLibrary(row, checked, { deferRebuild: true });
+      }
+      scheduleRebuild();
+      message.success(checked ? '已全部纳入查询库' : '已全部移出查询库');
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '批量更新失败');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const toggleAllFieldsLibrary = async (
+    tableId: string,
+    tableInLibrary: boolean,
+    checked: boolean,
+  ) => {
+    if (!tableInLibrary) return;
+    try {
+      const fields = fieldCache[tableId] ?? (await loadFields(tableId));
+      await Promise.all(
+        fields.map((f) => metaApi.updateField(f.id, { inQueryLibrary: checked })),
+      );
+      setFieldCache((prev) => ({
+        ...prev,
+        [tableId]: fields.map((f) => ({ ...f, inQueryLibrary: checked })),
+      }));
+      scheduleRebuild();
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '批量更新失败');
+    }
+  };
+
+  const queryLibraryColumnTitle = (
+    <Space direction="vertical" size={0} align="center">
+      <span>智能查询库</span>
+      <Space size={0} split={<Typography.Text type="secondary">|</Typography.Text>}>
+        <Typography.Link
+          disabled={bulkUpdating || activeTables.length === 0}
+          onClick={() => void toggleAllTablesLibrary(true)}
+        >
+          全开
+        </Typography.Link>
+        <Typography.Link
+          disabled={bulkUpdating || activeTables.length === 0}
+          onClick={() => void toggleAllTablesLibrary(false)}
+        >
+          全关
+        </Typography.Link>
+      </Space>
+    </Space>
+  );
+
+  const fieldQueryLibraryColumnTitle = (
+    tableId: string,
+    tableInLibrary: boolean,
+  ) => (
+    <Space direction="vertical" size={0} align="center">
+      <span>查询库</span>
+      <Space size={0} split={<Typography.Text type="secondary">|</Typography.Text>}>
+        <Typography.Link
+          disabled={!tableInLibrary || bulkUpdating}
+          onClick={() => void toggleAllFieldsLibrary(tableId, tableInLibrary, true)}
+        >
+          全开
+        </Typography.Link>
+        <Typography.Link
+          disabled={!tableInLibrary || bulkUpdating}
+          onClick={() => void toggleAllFieldsLibrary(tableId, tableInLibrary, false)}
+        >
+          全关
+        </Typography.Link>
+      </Space>
+    </Space>
+  );
 
   const saveField = async (
     fieldId: string,
@@ -150,8 +239,8 @@ export default function MetadataPage() {
 
       <Table
         rowKey="id"
-        loading={loading}
-        dataSource={tables.filter((t) => t.sourceStatus !== 'removed_at_source')}
+        loading={loading || bulkUpdating}
+        dataSource={activeTables}
         expandable={{
           expandedRowKeys: expandedKeys,
           onExpandedRowsChange: (keys) => setExpandedKeys(keys as string[]),
@@ -240,9 +329,10 @@ export default function MetadataPage() {
                     ),
                   },
                   {
-                    title: '查询库',
+                    title: fieldQueryLibraryColumnTitle(record.id, record.inQueryLibrary),
                     dataIndex: 'inQueryLibrary',
-                    width: 72,
+                    width: 88,
+                    align: 'center',
                     render: (v: boolean, field: MetaFieldItem) => (
                       <Switch
                         size="small"
@@ -300,9 +390,10 @@ export default function MetadataPage() {
             render: (v: string) => <Tag>{v}</Tag>,
           },
           {
-            title: '智能查询库',
+            title: queryLibraryColumnTitle,
             dataIndex: 'inQueryLibrary',
-            width: 110,
+            width: 120,
+            align: 'center',
             render: (v: boolean, row: MetaTableItem) => (
               <Switch checked={v} onChange={(checked) => void toggleTableLibrary(row, checked)} />
             ),

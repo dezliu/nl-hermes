@@ -27,7 +27,7 @@ const SQL_DIR = join(SETTLE_DIR, 'sql');
 const DATASOURCE_NAME = '结算演示库';
 const SETTLE_DATABASE = 'hermes_settle';
 const SEED_MARKER_PATH = join(process.cwd(), '.hermes/settle-seed.done');
-const SEED_MARKER_VERSION = 2;
+const SEED_MARKER_VERSION = 3;
 
 type QueryLibraryConfig = {
   tables: {
@@ -197,7 +197,29 @@ function loadQueryLibraryConfig(): QueryLibraryConfig {
   return JSON.parse(readFileSync(join(SETTLE_DIR, 'query-library.json'), 'utf8')) as QueryLibraryConfig;
 }
 
-async function applyQueryLibrary(datasourceId: string, config: QueryLibraryConfig): Promise<number> {
+async function enableAllQueryLibrary(datasourceId: string): Promise<number> {
+  const tables = await MetaTableModel.query()
+    .where('datasource_id', datasourceId)
+    .where('source_status', 'active')
+    .select('id');
+
+  if (tables.length === 0) return 0;
+
+  const tableIds = tables.map((t) => t.id);
+  await MetaTableModel.query().whereIn('id', tableIds).patch({ inQueryLibrary: true });
+
+  const fieldCount = await MetaFieldModel.query()
+    .whereIn('table_id', tableIds)
+    .where('source_status', 'active')
+    .patch({ inQueryLibrary: true });
+
+  return fieldCount;
+}
+
+async function applyQueryLibraryEnrichment(
+  datasourceId: string,
+  config: QueryLibraryConfig,
+): Promise<number> {
   let fieldCount = 0;
   for (const tableCfg of config.tables) {
     const table = await MetaTableModel.query().findOne({
@@ -210,7 +232,6 @@ async function applyQueryLibrary(datasourceId: string, config: QueryLibraryConfi
     }
 
     await MetaTableModel.query().patchAndFetchById(table.id, {
-      inQueryLibrary: true,
       description: tableCfg.description ?? table.description,
     });
 
@@ -225,7 +246,6 @@ async function applyQueryLibrary(datasourceId: string, config: QueryLibraryConfi
       }
 
       await MetaFieldModel.query().patchAndFetchById(field.id, {
-        inQueryLibrary: true,
         businessName: fieldCfg.businessName ?? field.businessName,
         description: fieldCfg.description ?? field.description,
       });
@@ -408,7 +428,7 @@ async function phase2HermesMeta(
   const qlConfig = loadQueryLibraryConfig();
   const noopAudit = { create: async () => {} } as unknown as AuditRepository;
 
-  // 全量同步：写入全部表/字段，并标记源端已删除项（含字段）
+  // 全量同步：写入全部表/字段，默认全部纳入查询库
   const fullSyncResult = await syncDatasourceMetadata(
     ds,
     repos.meta,
@@ -416,13 +436,13 @@ async function phase2HermesMeta(
     noopAudit,
     logger,
     `seed-${Date.now()}`,
-    { mode: 'full' },
+    { mode: 'full', defaultInQueryLibrary: true },
   );
   console.log(
     `[seed:settle] full sync: tables=${fullSyncResult.tablesSynced} fields=${fullSyncResult.fieldsSynced}`,
   );
 
-  // 选择性同步：仅刷新 query-library 配置的表/字段（与 Admin 选择性同步行为一致）
+  // 选择性同步：刷新 query-library 配置中的表/字段元数据（描述、同义词等）
   const selectiveResult = await syncDatasourceMetadata(
     ds,
     repos.meta,
@@ -433,14 +453,18 @@ async function phase2HermesMeta(
     {
       mode: 'selective',
       tables: buildSelectiveTablesFromQueryLibrary(qlConfig),
+      defaultInQueryLibrary: true,
     },
   );
   console.log(
     `[seed:settle] selective sync (query-library): tables=${selectiveResult.tablesSynced} fields=${selectiveResult.fieldsSynced}`,
   );
 
-  const queryLibraryFields = await applyQueryLibrary(datasourceId, qlConfig);
-  console.log(`[seed:settle] query library fields enabled: ${queryLibraryFields}`);
+  const queryLibraryFields = await enableAllQueryLibrary(datasourceId);
+  console.log(`[seed:settle] query library enabled for all fields: ${queryLibraryFields}`);
+
+  await applyQueryLibraryEnrichment(datasourceId, qlConfig);
+  console.log('[seed:settle] query library enrichment applied from query-library.json');
 
   const bkEntries = JSON.parse(
     readFileSync(join(SETTLE_DIR, 'business-knowledge.json'), 'utf8'),

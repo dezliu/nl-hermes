@@ -12,4 +12,14 @@ export class AuditLogModel extends BaseModel {
   traceId?: string | null;
 
   static tableName = META_TABLES.AUDIT_LOGS;
+
+  /** audit_logs 表仅有 created_at，无 updated_at */
+  $beforeInsert() {
+    const now = new Date().toISOString().slice(0, 23).replace('T', ' ');
+    if (!this.createdAt) this.createdAt = now;
+  }
+
+  $beforeUpdate() {
+    // no updated_at column
+  }
 }
