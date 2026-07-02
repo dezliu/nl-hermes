@@ -76,6 +76,9 @@ services:
     ports:
       - "4000:4000"
     env_file: .env
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
     depends_on:
       mysql:
         condition: service_healthy
@@ -92,6 +95,9 @@ services:
     ports:
       - "4050:4050"
     env_file: .env
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
     depends_on:
       mysql:
         condition: service_healthy
@@ -137,6 +143,9 @@ services:
     ports:
       - "4030:4030"
     env_file: .env
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
     depends_on:
       mysql:
         condition: service_healthy

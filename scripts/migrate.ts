@@ -1,7 +1,26 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import knex, { type Knex } from 'knex';
 import metaConfig from '../migrations/meta/knexfile.js';
 import chatConfig from '../migrations/chat/knexfile.js';
 import evalConfig from '../migrations/eval/knexfile.js';
+
+function loadEnvFile(): void {
+  const envPath = resolve(process.cwd(), '.env');
+  if (!existsSync(envPath)) return;
+
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
 
 const SCHEMAS = [
   { name: 'hermes_meta', config: metaConfig },
@@ -24,6 +43,8 @@ async function migrateSchema(name: string, config: Knex.Config): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  loadEnvFile();
+
   for (const schema of SCHEMAS) {
     await migrateSchema(schema.name, schema.config);
   }

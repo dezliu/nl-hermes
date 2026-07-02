@@ -7,7 +7,7 @@ services:
       MYSQL_USER: hermes
       MYSQL_PASSWORD: hermes_dev
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d

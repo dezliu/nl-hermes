@@ -95,6 +95,9 @@ importers:
 
   apps/metadata-service:
     dependencies:
+      '@hermes/orm-schemas':
+        specifier: workspace:*
+        version: link:../../packages/orm-schemas
       '@hermes/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -104,6 +107,12 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.22.2
+      knex:
+        specifier: ^3.1.0
+        version: 3.3.0(mysql2@3.22.5(@types/node@22.20.0))
+      mysql2:
+        specifier: ^3.11.5
+        version: 3.22.5(@types/node@22.20.0)
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -114,6 +123,9 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.0
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       tsx:
         specifier: ^4.19.2
         version: 4.22.4
@@ -157,6 +169,9 @@ importers:
 
   apps/rag-service:
     dependencies:
+      '@hermes/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@hermes/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -176,6 +191,9 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.0
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       tsx:
         specifier: ^4.19.2
         version: 4.22.4
@@ -188,6 +206,9 @@ importers:
 
   apps/report-service:
     dependencies:
+      '@hermes/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@hermes/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -197,6 +218,9 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.22.2
+      mysql2:
+        specifier: ^3.11.5
+        version: 3.22.5(@types/node@22.20.0)
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -207,6 +231,9 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.0
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
       tsx:
         specifier: ^4.19.2
         version: 4.22.4
@@ -348,6 +375,9 @@ importers:
       '@hermes/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@hermes/shared':
+        specifier: workspace:*
+        version: link:../shared
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -364,6 +394,9 @@ importers:
       knex:
         specifier: ^3.1.0
         version: 3.3.0(mysql2@3.22.5(@types/node@22.20.0))
+      mysql2:
+        specifier: ^3.11.5
+        version: 3.22.5(@types/node@22.20.0)
       objection:
         specifier: ^3.1.5
         version: 3.1.5(knex@3.3.0(mysql2@3.22.5(@types/node@22.20.0)))

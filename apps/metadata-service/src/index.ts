@@ -1,10 +1,10 @@
-import { createServiceApp } from '@hermes/shared';
+import { createMetadataApp } from './app.js';
 
 const PORT = Number(process.env.PORT ?? 4050);
-const app = createServiceApp('metadata-service');
-
-
+const app = createMetadataApp();
 
 app.listen(PORT, () => {
   console.log(`[metadata-service] listening on :${PORT}`);
 });
+
+export { createMetadataApp };

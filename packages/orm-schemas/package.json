@@ -5,6 +5,6 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": { "build": "tsc", "lint": "tsc --noEmit", "clean": "rm -rf dist" },
-  "dependencies": { "objection": "^3.1.5", "knex": "^3.1.0" },
+  "dependencies": { "objection": "^3.1.5", "knex": "^3.1.0", "mysql2": "^3.11.5" },
   "devDependencies": { "@types/node": "^22.10.2", "typescript": "^5.7.2" }
 }

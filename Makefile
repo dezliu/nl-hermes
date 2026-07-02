@@ -1,4 +1,4 @@
-.PHONY: help up down build migrate seed dev test lint logs clean install infra
+.PHONY: help up down build migrate seed dev test lint logs clean install infra mysql-up
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -19,14 +19,17 @@ down: ## 停止并移除容器
 build: ## 构建全部服务
 	pnpm build
 
-migrate: ## 执行数据库迁移
-	pnpm migrate
+mysql-up: ## 仅启动 MySQL（供 migrate 使用）
+	docker compose -f docker-compose.dev.yml up -d mysql
+
+migrate: mysql-up ## 执行数据库迁移（先启动 MySQL，宿主机连 localhost:3307）
+	MYSQL_HOST=localhost MYSQL_PORT=3307 pnpm migrate
 
 seed: ## 导入演示数据
 	@echo "Seed not yet implemented (Phase 2)"
 
 dev: infra ## 本地开发：infra + pnpm dev
-	pnpm dev
+	MYSQL_HOST=localhost MYSQL_PORT=3307 pnpm dev
 
 test: ## 运行测试
 	pnpm test
