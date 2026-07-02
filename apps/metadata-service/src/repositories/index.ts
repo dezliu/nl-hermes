@@ -138,6 +138,14 @@ export class MetaRepository {
       .whereNotIn('physical_name', activeNames.length ? activeNames : ['__none__'])
       .patch({ sourceStatus: 'removed_at_source' });
   }
+
+  markRemovedFields(tableId: string, activeNames: string[], trx?: Knex.Transaction) {
+    return MetaFieldModel.query(trx)
+      .where('table_id', tableId)
+      .where('source', 'sync')
+      .whereNotIn('physical_name', activeNames.length ? activeNames : ['__none__'])
+      .patch({ sourceStatus: 'removed_at_source' });
+  }
 }
 
 export class PromptRepository {

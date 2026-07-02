@@ -65,9 +65,19 @@ export function mountRoutes(app: Express, ctx: ServiceContext): void {
     res.json(result);
   }));
 
+  app.get('/v1/datasources/:id/sync/preview', asyncHandler(async (req, res) => {
+    try {
+      const result = await ctx.datasource.previewSync(param(req.params.id), getTraceId(req));
+      if (!result) { res.status(404).json({ error: 'not_found' }); return; }
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'preview_failed' });
+    }
+  }));
+
   app.post('/v1/datasources/:id/sync', asyncHandler(async (req, res) => {
     try {
-      const result = await ctx.datasource.sync(param(req.params.id), getTraceId(req));
+      const result = await ctx.datasource.sync(param(req.params.id), req.body, getTraceId(req));
       if (!result) { res.status(404).json({ error: 'not_found' }); return; }
       res.json(result);
     } catch (err) {

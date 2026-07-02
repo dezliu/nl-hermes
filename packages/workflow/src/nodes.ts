@@ -3,8 +3,17 @@ import type { WorkflowGraphState } from './state.js';
 import type { NodeResult, WorkflowDeps } from './types.js';
 import { DEFAULT_WORKFLOW_LIMITS } from './state.js';
 import { checkSecurityGuard } from './security-guard.js';
-import { checkGrounding } from './grounding.js';
-import { computeRagScore, mergeRetrieveResults } from './rag-utils.js';
+import { checkGrounding, checkColumnGrounding, checkSqlGrounding } from './grounding.js';
+import { computeRagScore, isRagScoreAcceptable, mergeRetrieveResults } from './rag-utils.js';
+
+const DATASOURCE_SETUP_HINT =
+  '未配置有效数据源。请执行 pnpm seed:settle 并在 .env 设置 DEFAULT_DATASOURCE_ID。';
+
+function shouldSkipRagRewrite(query: string): boolean {
+  if (process.env.WORKFLOW_SKIP_RAG_REWRITE === 'true') return true;
+  if (query.length < 8) return false;
+  return /查|统计|流水|查询|汇总|明细|报表/.test(query);
+}
 
 function interrupted(state: WorkflowGraphState, deps: WorkflowDeps): NodeResult | null {
   if (deps.signal.isInterrupted()) {
@@ -15,6 +24,26 @@ function interrupted(state: WorkflowGraphState, deps: WorkflowDeps): NodeResult 
 
 function emitPhase(deps: WorkflowDeps, phase: WorkflowGraphState['currentPhase']) {
   deps.emit({ type: 'phase', phase });
+}
+
+function emitStep(deps: WorkflowDeps, step: string, detail?: string) {
+  deps.emit({ type: 'step', step, detail });
+}
+
+function emitSqlDraft(deps: WorkflowDeps, explanation: string, sql: string) {
+  deps.emit({
+    type: 'chunk',
+    content: `**分析**\n${explanation}\n\n**SQL 草案**\n\`\`\`sql\n${sql}\n\`\`\`\n`,
+  });
+}
+
+function summarizeSchemaTables(schemaContext: RetrieveResult[]): string {
+  const tables = new Set<string>();
+  for (const item of schemaContext.slice(0, 6)) {
+    const match = item.content.match(/^([a-z_][a-z0-9_]*)/i);
+    if (match) tables.add(match[1]!);
+  }
+  return tables.size > 0 ? [...tables].join('、') : '（未命中相关表）';
 }
 
 function rolePromptInput(state: WorkflowGraphState) {
@@ -62,7 +91,16 @@ export async function loadContextNode(state: WorkflowGraphState, deps: WorkflowD
   const hit = interrupted(state, deps);
   if (hit) return hit;
 
+  if (!deps.datasourceId) {
+    return {
+      intent: 'refuse',
+      refuseReason: DATASOURCE_SETUP_HINT,
+      currentNode: 'LoadContext',
+    };
+  }
+
   emitPhase(deps, 'understanding');
+  emitStep(deps, '理解问题', state.query);
   deps.emit({ type: 'chunk', content: '正在理解问题…\n' });
 
   const rolePrompt = await deps.metadata.getActivePrompt(state.roleId ?? null);
@@ -132,6 +170,10 @@ export async function ragPrepareNode(state: WorkflowGraphState, deps: WorkflowDe
     return { currentNode: 'RagPrepare' };
   }
 
+  if (shouldSkipRagRewrite(state.query)) {
+    return { ragQueries: [state.query], currentNode: 'RagPrepare' };
+  }
+
   const queries = await deps.llm.rewriteQueries({ query: state.query, mode: state.mode });
   return { ragQueries: queries, currentNode: 'RagPrepare' };
 }
@@ -141,6 +183,7 @@ export async function ragRetrieveNode(state: WorkflowGraphState, deps: WorkflowD
   if (hit) return hit;
 
   emitPhase(deps, 'retrieving');
+  emitStep(deps, '检索表字段');
   deps.emit({ type: 'chunk', content: '正在检索相关数据表…\n' });
 
   const searchQueries = state.ragSearchQuery
@@ -153,15 +196,20 @@ export async function ragRetrieveNode(state: WorkflowGraphState, deps: WorkflowD
   const bizSets: RetrieveResult[][] = [];
   const tplSets: RetrieveResult[][] = [];
 
-  for (const q of searchQueries) {
-    const batch = await retrieveAllCollections(deps, q, state.mode);
+  const batches = await Promise.all(
+    searchQueries.map((q) => retrieveAllCollections(deps, q, state.mode)),
+  );
+  for (const batch of batches) {
     metaSets.push(batch.metadata);
     bizSets.push(batch.business);
     tplSets.push(batch.templates);
   }
 
+  const schemaContext = mergeRetrieveResults(...metaSets);
+  emitStep(deps, '检索表字段', summarizeSchemaTables(schemaContext));
+
   return {
-    schemaContext: mergeRetrieveResults(...metaSets),
+    schemaContext,
     businessKnowledge: mergeRetrieveResults(...bizSets),
     templateExamples: mergeRetrieveResults(...tplSets),
     ragLoopCount: state.ragLoopCount + 1,
@@ -177,7 +225,7 @@ export async function ragQualityGateNode(state: WorkflowGraphState, deps: Workfl
 
   const ragScore = computeRagScore(state.schemaContext, state.businessKnowledge);
 
-  if (ragScore >= state.minRagScore) {
+  if (isRagScoreAcceptable(ragScore, state.minRagScore, state.schemaContext)) {
     return { ragScore, currentNode: 'RagQualityGate' };
   }
 
@@ -208,6 +256,7 @@ export async function generateSqlNode(state: WorkflowGraphState, deps: WorkflowD
   if (hit) return hit;
 
   emitPhase(deps, 'generating');
+  emitStep(deps, '生成 SQL');
   deps.emit({ type: 'chunk', content: '正在生成 SQL…\n' });
 
   const gen = await deps.llm.generateSql({
@@ -218,7 +267,13 @@ export async function generateSqlNode(state: WorkflowGraphState, deps: WorkflowD
     mode: state.mode,
     rolePrompt: rolePromptInput(state),
     errorFeedback: state.lastError,
+    onThinking: (chunk) => {
+      if (chunk) deps.emit({ type: 'thinking', content: chunk });
+    },
   });
+
+  deps.emit({ type: 'thinking', content: '', done: true });
+  emitSqlDraft(deps, gen.explanation, gen.sql);
 
   return {
     generatedSql: gen.sql,
@@ -234,6 +289,7 @@ export async function generateReportNode(state: WorkflowGraphState, deps: Workfl
   if (hit) return hit;
 
   emitPhase(deps, 'generating');
+  emitStep(deps, '生成报表');
   deps.emit({ type: 'chunk', content: '正在生成报表…\n' });
 
   const gen = await deps.llm.generateReport({
@@ -243,7 +299,13 @@ export async function generateReportNode(state: WorkflowGraphState, deps: Workfl
     examples: state.templateExamples,
     rolePrompt: rolePromptInput(state),
     errorFeedback: state.lastError,
+    onThinking: (chunk) => {
+      if (chunk) deps.emit({ type: 'thinking', content: chunk });
+    },
   });
+
+  deps.emit({ type: 'thinking', content: '', done: true });
+  emitSqlDraft(deps, gen.explanation, gen.sql);
 
   return {
     generatedSql: gen.sql,
@@ -263,11 +325,53 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
     return { currentNode: 'ValidateResult' };
   }
 
-  const datasourceId = deps.datasourceId ?? 'default';
+  emitStep(deps, '校验 SQL');
+
+  const columnCheck = checkColumnGrounding({ sql: state.generatedSql, schemaContext: state.schemaContext });
+  if (!columnCheck.ok) {
+    const unknown = columnCheck.unknownColumns?.join(', ') ?? '未知字段';
+    const msg = `SQL 包含知识库外的字段：${unknown}`;
+    deps.emit({ type: 'chunk', content: `\n⚠️ ${msg}\n` });
+    if (state.validateRetryCount < state.maxValidateRetries) {
+      return {
+        lastError: msg,
+        validateRetryCount: state.validateRetryCount + 1,
+        currentNode: 'ValidateResult',
+      };
+    }
+    return {
+      refuseReason: `SQL 校验未通过：${msg}`,
+      intent: 'refuse',
+      currentNode: 'ValidateResult',
+    };
+  }
+
+  const datasourceId = deps.datasourceId;
+  if (!datasourceId) {
+    return {
+      refuseReason: DATASOURCE_SETUP_HINT,
+      intent: 'refuse',
+      currentNode: 'ValidateResult',
+    };
+  }
+
   try {
-    const validation = await deps.report.validateSql({ sql: state.generatedSql, datasourceId });
+    const validation = await deps.report.validateSql({
+      sql: state.generatedSql,
+      datasourceId,
+      lightweight: state.mode === 'sql',
+    });
     if (!validation.valid) {
-      const msg = (validation.errors ?? []).map((e: { message: string }) => e.message).join('; ') || 'SQL 校验失败';
+      const errors = validation.errors ?? [];
+      if (errors.some((e) => e.code === 'DATASOURCE_NOT_FOUND')) {
+        return {
+          refuseReason: DATASOURCE_SETUP_HINT,
+          intent: 'refuse',
+          currentNode: 'ValidateResult',
+        };
+      }
+      const msg = errors.map((e: { message: string }) => e.message).join('; ') || 'SQL 校验失败';
+      deps.emit({ type: 'chunk', content: `\n⚠️ 校验失败：${msg}\n` });
       if (state.validateRetryCount < state.maxValidateRetries) {
         return {
           lastError: msg,
@@ -296,7 +400,15 @@ export async function executeReportNode(state: WorkflowGraphState, deps: Workflo
     return { currentNode: 'ExecuteReport' };
   }
 
-  const datasourceId = deps.datasourceId ?? 'default';
+  const datasourceId = deps.datasourceId;
+  if (!datasourceId) {
+    return {
+      refuseReason: DATASOURCE_SETUP_HINT,
+      intent: 'refuse',
+      currentNode: 'ExecuteReport',
+    };
+  }
+
   const exec = await deps.report.executeQuery({
     sql: state.generatedSql,
     datasourceId,
@@ -379,17 +491,22 @@ export async function groundingCheckNode(state: WorkflowGraphState, deps: Workfl
     return { currentNode: 'GroundingCheck' };
   }
 
-  const check = checkGrounding({
+  const check = checkSqlGrounding({
     sql: state.generatedSql,
     schemaContext: state.schemaContext,
     businessKnowledge: state.businessKnowledge,
   });
 
   if (!check.ok) {
-    deps.logger.warn('workflow.grounding.failed', { unknown: check.unknownTokens });
+    deps.logger.warn('workflow.grounding.failed', {
+      unknown: check.unknownTokens ?? check.unknownColumns,
+    });
+    const detail = check.unknownColumns?.length
+      ? `未知字段：${check.unknownColumns.join(', ')}`
+      : `未知表：${check.unknownTokens?.join(', ') ?? ''}`;
     return {
       intent: 'refuse',
-      refuseReason: '抱歉，生成结果包含知识库外的未定义字段，请重新描述需求。',
+      refuseReason: `抱歉，生成结果包含知识库外的未定义字段，请重新描述需求。${detail}`,
       currentNode: 'GroundingCheck',
     };
   }
@@ -457,7 +574,7 @@ export function routeAfterIntent(state: WorkflowGraphState): string {
 
 export function routeAfterQualityGate(state: WorkflowGraphState): string {
   if (state.intent === 'refuse') return 'refuse';
-  if (state.ragScore >= state.minRagScore) {
+  if (isRagScoreAcceptable(state.ragScore, state.minRagScore, state.schemaContext)) {
     return state.mode === 'sql' ? 'generate_sql' : 'generate_report';
   }
   if (state.ragSearchQuery) return 'rag_retrieve';

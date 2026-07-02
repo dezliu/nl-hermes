@@ -1,5 +1,5 @@
 import type { ChatStreamEvent, TemplateDetail } from '@hermes/contracts';
-import { createReportClient } from '@hermes/llm-tools';
+import { createMetadataClient, createReportClient } from '@hermes/llm-tools';
 import { fillTemplateParameters, validateTemplateParameters } from '../lib/template-utils.js';
 import type { MetadataTemplateClient } from '../lib/metadata-template-client.js';
 
@@ -49,10 +49,12 @@ export class TemplateApplyService {
     }
 
     emit({ type: 'phase', phase: 'generating' });
+    const metadata = createMetadataClient(process.env.METADATA_SERVICE_URL, input.traceId);
+    const datasourceId = await metadata.resolveDatasourceId(input.datasourceId);
     const report = createReportClient(process.env.REPORT_SERVICE_URL, input.traceId);
     const exec = await report.executeQuery({
       sql: filledSql,
-      datasourceId: input.datasourceId ?? 'default',
+      datasourceId,
       parameters: input.templateParameters,
     });
 

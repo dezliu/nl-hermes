@@ -4,14 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
+  Collapse,
   Empty,
   Form,
   Input,
   Modal,
   Popconfirm,
   Segmented,
+  Select,
   Space,
   Spin,
+  Steps,
   Typography,
   message,
 } from 'antd';
@@ -25,7 +28,14 @@ import {
   pickTopTemplate,
   toTemplateParameters,
   type Phase,
+  type WorkflowStep,
 } from './chat-utils';
+import {
+  listDatasources,
+  loadStoredDatasourceId,
+  storeDatasourceId,
+  type DatasourceSummary,
+} from './api';
 
 const { TextArea } = Input;
 const { Text, Paragraph, Title } = Typography;
@@ -34,6 +44,8 @@ type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  thinking?: string;
+  steps?: WorkflowStep[];
   status?: 'completed' | 'interrupted' | 'failed';
   phase?: Phase;
   feedbackRating?: 'up' | 'down' | null;
@@ -69,6 +81,9 @@ export default function ChatPage() {
   const [templateDetail, setTemplateDetail] = useState<{ placeholders: string[]; name: string } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [datasources, setDatasources] = useState<DatasourceSummary[]>([]);
+  const [selectedDatasourceId, setSelectedDatasourceId] = useState<string | undefined>();
+  const [datasourcesLoading, setDatasourcesLoading] = useState(false);
 
   const runRef = useRef<{ runId: string; conversationId: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -92,6 +107,42 @@ export default function ChatPage() {
   useEffect(() => {
     void refreshConversations();
   }, [refreshConversations]);
+
+  useEffect(() => {
+    void (async () => {
+      setDatasourcesLoading(true);
+      try {
+        const items = await listDatasources();
+        setDatasources(items);
+        const stored = loadStoredDatasourceId();
+        const envDefault = process.env.NEXT_PUBLIC_DEFAULT_DATASOURCE_ID;
+        const preferred = [stored, envDefault].find((id) => id && items.some((d) => d.id === id));
+        setSelectedDatasourceId(preferred ?? items[0]?.id);
+      } catch {
+        // 数据源列表加载失败时由后端自动解析
+      } finally {
+        setDatasourcesLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleDatasourceChange = useCallback((value: string | undefined) => {
+    setSelectedDatasourceId(value);
+    storeDatasourceId(value);
+  }, []);
+
+  const handleNewConversation = useCallback(() => {
+    if (streaming) {
+      message.warning('请等待当前生成完成');
+      return;
+    }
+    setConversationId(undefined);
+    setMessages([]);
+    setInput('');
+    setPhase('idle');
+    setTemplateSuggestion(null);
+    setTemplateDismissed(false);
+  }, [streaming]);
 
   useEffect(() => {
     if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
@@ -144,7 +195,10 @@ export default function ChatPage() {
       templateParameters?: Record<string, string>;
     }) => {
       const assistantId = `a-${Date.now()}`;
-      setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '', phase: 'understanding' }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: 'assistant', content: '', thinking: '', steps: [], phase: 'understanding' },
+      ]);
       setStreaming(true);
       setPhase('understanding');
       setTemplateSuggestion(null);
@@ -162,6 +216,7 @@ export default function ChatPage() {
               conversationId,
               query: opts.query,
               mode,
+              datasourceId: selectedDatasourceId,
               templateId: opts.templateId,
               templateType: opts.templateType,
               templateParameters: opts.templateParameters
@@ -187,6 +242,7 @@ export default function ChatPage() {
             conversationId: cid,
             query: opts.query,
             mode,
+            datasourceId: selectedDatasourceId,
             templateId: opts.templateId,
             templateType: opts.templateType,
             templateParameters: opts.templateParameters,
@@ -212,6 +268,28 @@ export default function ChatPage() {
             if (event.type === 'phase') {
               setPhase(event.phase);
               appendAssistant({ id: assistantId, phase: event.phase });
+            } else if (event.type === 'step') {
+              setMessages((prev) => {
+                const idx = prev.findIndex((m) => m.id === assistantId);
+                if (idx < 0) return prev;
+                const next = [...prev];
+                const steps = [...(next[idx]!.steps ?? []), { step: event.step, detail: event.detail }];
+                next[idx] = { ...next[idx]!, steps };
+                return next;
+              });
+            } else if (event.type === 'thinking') {
+              if (!event.done) {
+                setMessages((prev) => {
+                  const idx = prev.findIndex((m) => m.id === assistantId);
+                  if (idx < 0) return prev;
+                  const next = [...prev];
+                  next[idx] = {
+                    ...next[idx]!,
+                    thinking: (next[idx]!.thinking ?? '') + event.content,
+                  };
+                  return next;
+                });
+              }
             } else if (event.type === 'chunk') {
               setMessages((prev) => {
                 const idx = prev.findIndex((m) => m.id === assistantId);
@@ -221,21 +299,24 @@ export default function ChatPage() {
                 return next;
               });
             } else if (event.type === 'done') {
-              appendAssistant({
-                id: assistantId,
-                content: event.content,
-                status: event.status,
-                phase: 'idle',
+              setMessages((prev) => {
+                const idx = prev.findIndex((m) => m.id === assistantId);
+                if (idx < 0) return prev;
+                const current = prev[idx]!;
+                const mergedContent =
+                  event.status === 'failed' && current.content.trim()
+                    ? current.content
+                    : event.content || current.content;
+                const next = [...prev];
+                next[idx] = {
+                  ...current,
+                  id: event.messageId ?? current.id,
+                  content: mergedContent,
+                  status: event.status,
+                  phase: 'idle',
+                };
+                return next;
               });
-              if (event.messageId) {
-                setMessages((prev) => {
-                  const idx = prev.findIndex((m) => m.id === assistantId);
-                  if (idx < 0) return prev;
-                  const next = [...prev];
-                  next[idx] = { ...next[idx]!, id: event.messageId };
-                  return next;
-                });
-              }
               setPhase('idle');
             } else if (event.type === 'error') {
               message.error(event.message);
@@ -255,7 +336,7 @@ export default function ChatPage() {
         setPhase('idle');
       }
     },
-    [appendAssistant, conversationId, mode, refreshConversations],
+    [appendAssistant, conversationId, mode, refreshConversations, selectedDatasourceId],
   );
 
   const handleSend = useCallback(async () => {
@@ -416,9 +497,14 @@ export default function ChatPage() {
           gap: 12,
         }}
       >
-        <Title level={5} style={{ margin: 0, color: '#431407' }}>
-          历史会话
-        </Title>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Title level={5} style={{ margin: 0, color: '#431407' }}>
+            历史会话
+          </Title>
+          <Button size="small" type="primary" ghost onClick={handleNewConversation} disabled={streaming}>
+            新对话
+          </Button>
+        </div>
         {conversations.length === 0 ? (
           <Empty description="开始您的第一次数据提问吧" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
@@ -482,21 +568,37 @@ export default function ChatPage() {
       </aside>
 
       <main style={{ flex: 1, maxWidth: 960, margin: '0 auto', padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 16, flexWrap: 'wrap' }}>
           <div>
             <Title level={3} style={{ margin: 0, color: '#431407' }}>
               智能对话
             </Title>
             <Text type="secondary">自然语言生成 SQL / 报表，模板推荐与满意度反馈</Text>
           </div>
-          <Segmented
-            value={mode}
-            onChange={(v) => setMode(v as 'sql' | 'report')}
-            options={[
-              { label: 'SQL 模式', value: 'sql' },
-              { label: '报表模式', value: 'report' },
-            ]}
-          />
+          <Space wrap>
+            <Select
+              allowClear
+              showSearch
+              placeholder="选择数据源（可选）"
+              loading={datasourcesLoading}
+              style={{ minWidth: 220 }}
+              value={selectedDatasourceId}
+              optionFilterProp="label"
+              onChange={(value) => handleDatasourceChange(value)}
+              options={datasources.map((d) => ({
+                value: d.id,
+                label: d.name,
+              }))}
+            />
+            <Segmented
+              value={mode}
+              onChange={(v) => setMode(v as 'sql' | 'report')}
+              options={[
+                { label: 'SQL 模式', value: 'sql' },
+                { label: '报表模式', value: 'report' },
+              ]}
+            />
+          </Space>
         </div>
 
         {templateSuggestion && !templateDismissed && !streaming && (
@@ -547,6 +649,46 @@ export default function ChatPage() {
                   whiteSpace: 'pre-wrap',
                 }}
               >
+                {m.role === 'assistant' && (m.steps?.length ?? 0) > 0 && (
+                  <div style={{ marginBottom: 10, textAlign: 'left' }}>
+                    <Steps
+                      size="small"
+                      direction="vertical"
+                      current={(m.steps?.length ?? 1) - 1}
+                      items={(m.steps ?? []).map((s) => ({
+                        title: s.step,
+                        description: s.detail,
+                      }))}
+                    />
+                  </div>
+                )}
+                {m.role === 'assistant' && m.thinking && (
+                  <Collapse
+                    size="small"
+                    style={{ marginBottom: 10, textAlign: 'left' }}
+                    items={[
+                      {
+                        key: 'thinking',
+                        label: '思考过程',
+                        children: (
+                          <pre
+                            style={{
+                              margin: 0,
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontSize: 12,
+                              maxHeight: 240,
+                              overflow: 'auto',
+                            }}
+                          >
+                            {m.thinking}
+                          </pre>
+                        ),
+                      },
+                    ]}
+                    defaultActiveKey={streaming ? ['thinking'] : []}
+                  />
+                )}
                 {m.content || (m.role === 'assistant' && streaming ? <Spin size="small" /> : null)}
                 {m.status === 'interrupted' && (
                   <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>（已中断）</div>

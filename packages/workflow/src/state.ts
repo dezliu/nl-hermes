@@ -76,13 +76,18 @@ export function createInitialState(input: {
   traceId?: string;
   history?: WorkflowGraphState['history'];
 }): WorkflowGraphState {
+  const maxRagLoopsEnv = Number(process.env.WORKFLOW_MAX_RAG_LOOPS);
+  const maxRagLoops = Number.isFinite(maxRagLoopsEnv) && maxRagLoopsEnv > 0
+    ? maxRagLoopsEnv
+    : DEFAULT_WORKFLOW_LIMITS.maxRagLoops;
+
   return {
     ...input,
     history: input.history ?? [],
     ragLoopCount: 0,
     reportRetryCount: 0,
     validateRetryCount: 0,
-    maxRagLoops: DEFAULT_WORKFLOW_LIMITS.maxRagLoops,
+    maxRagLoops,
     maxReportRetries: DEFAULT_WORKFLOW_LIMITS.maxReportRetries,
     maxValidateRetries: DEFAULT_WORKFLOW_LIMITS.maxValidateRetries,
     minRagScore: DEFAULT_WORKFLOW_LIMITS.minRagScore,

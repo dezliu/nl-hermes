@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createLlmProviderFromEnv } from './factory.js';
+import { createLlmProviderFromEnv, verifyLlmConnection } from './factory.js';
 import { createMockLlmProvider } from './mock-provider.js';
 
 describe('createLlmProviderFromEnv', () => {
@@ -53,5 +53,49 @@ describe('createLlmProviderFromEnv', () => {
     expect(console.info).toHaveBeenCalledWith(
       expect.stringContaining('provider=aliyun'),
     );
+  });
+
+  it('selects zhipu env vars when LLM_PROVIDER=zhipu', () => {
+    const llm = createLlmProviderFromEnv({
+      LLM_PROVIDER: 'zhipu',
+      ZHIPU_API_KEY: 'key-zp',
+      ZHIPU_BASE_URL: 'https://open.bigmodel.cn/api/paas/v4',
+      ZHIPU_MODEL: 'glm-4-plus',
+    });
+    expect(llm).toBeDefined();
+    expect(console.info).toHaveBeenCalledWith(
+      expect.stringContaining('provider=zhipu'),
+    );
+    expect(console.info).toHaveBeenCalledWith(
+      expect.stringContaining('baseUrl=https://open.bigmodel.cn/api/paas/v4'),
+    );
+  });
+});
+
+describe('verifyLlmConnection', () => {
+  it('returns error when api key is missing', async () => {
+    const result = await verifyLlmConnection({ LLM_PROVIDER: 'zhipu' });
+    expect(result.ok).toBe(false);
+    expect(result.provider).toBe('zhipu');
+    expect(result.error).toContain('API key');
+  });
+
+  it('returns ok when chat succeeds', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"pong":true}' } }] }),
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+
+    const result = await verifyLlmConnection({
+      LLM_PROVIDER: 'zhipu',
+      ZHIPU_API_KEY: 'key-zp',
+      ZHIPU_BASE_URL: 'https://open.bigmodel.cn/api/paas/v4',
+      ZHIPU_MODEL: 'glm-4-plus',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.provider).toBe('zhipu');
+    vi.unstubAllGlobals();
   });
 });

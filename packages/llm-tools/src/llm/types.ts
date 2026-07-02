@@ -41,6 +41,7 @@ export type LlmProvider = {
     mode: 'sql' | 'report';
     rolePrompt?: RolePromptInput;
     errorFeedback?: string;
+    onThinking?: (chunk: string) => void;
   }): Promise<{ sql: string; explanation: string }>;
 
   generateReport(input: {
@@ -50,6 +51,7 @@ export type LlmProvider = {
     examples: unknown[];
     rolePrompt?: RolePromptInput;
     errorFeedback?: string;
+    onThinking?: (chunk: string) => void;
   }): Promise<{
     sql: string;
     chartType: 'line' | 'bar' | 'table';
@@ -65,4 +67,5 @@ export type ResolvedLlmConfig = {
   apiKey: string;
   baseUrl: string;
   model: string;
+  fastModel?: string;
 };

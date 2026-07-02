@@ -101,6 +101,8 @@ export class ChatService {
     const metadata = createMetadataClient(process.env.METADATA_SERVICE_URL, traceId);
     const llm = createLlmProviderFromEnv();
 
+    const datasourceId = await metadata.resolveDatasourceId(input.datasourceId);
+
     const history = await this.opts.repo.listHistory(conversationId);
     const checkpointId = randomUUID();
 
@@ -129,6 +131,7 @@ export class ChatService {
             templateType: input.templateType!,
             templateParameters: input.templateParameters!,
             traceId,
+            datasourceId,
           },
           write,
         );
@@ -171,6 +174,7 @@ export class ChatService {
         logger: this.opts.logger,
         emit: write,
         signal: { isInterrupted: () => this.opts.interrupts.isInterrupted(runId) },
+        datasourceId,
       });
 
       const redisRef = await saveCheckpointRef(this.opts.redis, conversationId, runId, {

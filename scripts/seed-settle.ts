@@ -9,9 +9,9 @@ import { fileURLToPath } from 'node:url';
 import mysql from 'mysql2/promise';
 import { loadEnv } from '@hermes/shared';
 import { QDRANT_COLLECTIONS, OPENSEARCH_INDICES } from '@hermes/shared';
-import { bindMetaDb, destroyMetaDb, getMetaKnex, MetaFieldModel, MetaTableModel, BusinessKnowledgeModel, DatasourceModel } from '@hermes/orm-schemas';
+import { bindMetaDb, destroyMetaDb, getMetaKnex, MetaFieldModel, MetaTableModel, BusinessKnowledgeModel, DatasourceModel, SqlTemplateModel } from '@hermes/orm-schemas';
 import { createRepositories, type AuditRepository } from '../apps/metadata-service/src/repositories/index.js';
-import { syncDatasourceMetadata } from '../apps/metadata-service/src/services/datasource-service.js';
+import { syncDatasourceMetadata, type SyncTableSelection } from '../apps/metadata-service/src/services/datasource-service.js';
 import { encryptSecret, newId } from '../apps/metadata-service/src/lib/crypto.js';
 import { createLogger } from '@hermes/shared';
 import { embedText } from '../apps/rag-service/src/lib/embedding.js';
@@ -27,7 +27,7 @@ const SQL_DIR = join(SETTLE_DIR, 'sql');
 const DATASOURCE_NAME = '结算演示库';
 const SETTLE_DATABASE = 'hermes_settle';
 const SEED_MARKER_PATH = join(process.cwd(), '.hermes/settle-seed.done');
-const SEED_MARKER_VERSION = 1;
+const SEED_MARKER_VERSION = 2;
 
 type QueryLibraryConfig = {
   tables: {
@@ -41,6 +41,12 @@ type BusinessKnowledgeEntry = {
   title: string;
   category: 'glossary' | 'metric' | 'rule' | 'faq';
   content: string;
+};
+
+type SqlTemplateEntry = {
+  name: string;
+  scenarioDescription: string;
+  sqlBody: string;
 };
 
 function parseArgs() {
@@ -180,6 +186,17 @@ async function findOrCreateDatasource(repos: ReturnType<typeof createRepositorie
   return id;
 }
 
+function buildSelectiveTablesFromQueryLibrary(config: QueryLibraryConfig): SyncTableSelection[] {
+  return config.tables.map((table) => ({
+    physicalName: table.physicalName,
+    fields: table.fields.map((f) => f.physicalName),
+  }));
+}
+
+function loadQueryLibraryConfig(): QueryLibraryConfig {
+  return JSON.parse(readFileSync(join(SETTLE_DIR, 'query-library.json'), 'utf8')) as QueryLibraryConfig;
+}
+
 async function applyQueryLibrary(datasourceId: string, config: QueryLibraryConfig): Promise<number> {
   let fieldCount = 0;
   for (const tableCfg of config.tables) {
@@ -255,6 +272,34 @@ async function upsertBusinessKnowledge(entries: BusinessKnowledgeEntry[]): Promi
   return count;
 }
 
+async function upsertSqlTemplates(entries: SqlTemplateEntry[]): Promise<number> {
+  let count = 0;
+  for (const entry of entries) {
+    const existing = await SqlTemplateModel.query().findOne({ name: entry.name });
+    if (existing) {
+      await SqlTemplateModel.query().patchAndFetchById(existing.id, {
+        scenarioDescription: entry.scenarioDescription,
+        sqlBody: entry.sqlBody,
+        inLibrary: true,
+        status: 'active',
+      });
+    } else {
+      await SqlTemplateModel.query().insert({
+        id: crypto.randomUUID(),
+        name: entry.name,
+        scenarioDescription: entry.scenarioDescription,
+        sqlBody: entry.sqlBody,
+        inLibrary: true,
+        status: 'active',
+        usageCount: 0,
+        createdBy: null,
+      });
+    }
+    count += 1;
+  }
+  return count;
+}
+
 type LibraryField = Awaited<ReturnType<ReturnType<typeof createRepositories>['meta']['listFieldsForLibrary']>>[number];
 
 function buildMetadataDocs(fields: LibraryField[]) {
@@ -322,6 +367,28 @@ async function indexBusiness(): Promise<number> {
   return docs.length;
 }
 
+async function indexTemplates(): Promise<number> {
+  const items = await SqlTemplateModel.query().where('status', 'active').where('in_library', true);
+  const docs = items.map((t) => ({
+    id: t.id,
+    content: [t.name, t.scenarioDescription, t.sqlBody].join(' '),
+    metadata: { type: 'sql' as const, name: t.name },
+  }));
+  const points = docs.map((d) => ({
+    id: d.id,
+    vector: embedText(d.content),
+    payload: { content: d.content, metadata: d.metadata },
+  }));
+
+  const os = new OpenSearchClient();
+  const qdrant = new QdrantClient();
+  await Promise.all([
+    os.bulkIndex(OPENSEARCH_INDICES.TEMPLATES, docs),
+    qdrant.upsertPoints(QDRANT_COLLECTIONS.TEMPLATES, points),
+  ]);
+  return docs.length;
+}
+
 async function phase2HermesMeta(
   repos: ReturnType<typeof createRepositories>,
   logger: ReturnType<typeof createLogger>,
@@ -331,26 +398,47 @@ async function phase2HermesMeta(
   fieldsSynced: number;
   queryLibraryFields: number;
   businessKnowledge: number;
+  sqlTemplates: number;
 }> {
   console.log('[seed:settle] Phase 2: Hermes metadata');
 
   const ds = await DatasourceModel.query().findById(datasourceId);
   if (!ds) throw new Error(`Datasource not found: ${datasourceId}`);
 
+  const qlConfig = loadQueryLibraryConfig();
   const noopAudit = { create: async () => {} } as unknown as AuditRepository;
-  const syncResult = await syncDatasourceMetadata(
+
+  // 全量同步：写入全部表/字段，并标记源端已删除项（含字段）
+  const fullSyncResult = await syncDatasourceMetadata(
     ds,
     repos.meta,
     repos.datasource,
     noopAudit,
     logger,
     `seed-${Date.now()}`,
+    { mode: 'full' },
   );
-  console.log(`[seed:settle] synced tables=${syncResult.tablesSynced} fields=${syncResult.fieldsSynced}`);
+  console.log(
+    `[seed:settle] full sync: tables=${fullSyncResult.tablesSynced} fields=${fullSyncResult.fieldsSynced}`,
+  );
 
-  const qlConfig = JSON.parse(
-    readFileSync(join(SETTLE_DIR, 'query-library.json'), 'utf8'),
-  ) as QueryLibraryConfig;
+  // 选择性同步：仅刷新 query-library 配置的表/字段（与 Admin 选择性同步行为一致）
+  const selectiveResult = await syncDatasourceMetadata(
+    ds,
+    repos.meta,
+    repos.datasource,
+    noopAudit,
+    logger,
+    `seed-selective-${Date.now()}`,
+    {
+      mode: 'selective',
+      tables: buildSelectiveTablesFromQueryLibrary(qlConfig),
+    },
+  );
+  console.log(
+    `[seed:settle] selective sync (query-library): tables=${selectiveResult.tablesSynced} fields=${selectiveResult.fieldsSynced}`,
+  );
+
   const queryLibraryFields = await applyQueryLibrary(datasourceId, qlConfig);
   console.log(`[seed:settle] query library fields enabled: ${queryLibraryFields}`);
 
@@ -360,22 +448,34 @@ async function phase2HermesMeta(
   const businessKnowledge = await upsertBusinessKnowledge(bkEntries);
   console.log(`[seed:settle] business knowledge upserted: ${businessKnowledge}`);
 
+  const templateEntries = JSON.parse(
+    readFileSync(join(SETTLE_DIR, 'sql-templates.json'), 'utf8'),
+  ) as SqlTemplateEntry[];
+  const sqlTemplates = await upsertSqlTemplates(templateEntries);
+  console.log(`[seed:settle] sql templates upserted: ${sqlTemplates}`);
+
   return {
-    ...syncResult,
+    tablesSynced: fullSyncResult.tablesSynced,
+    fieldsSynced: fullSyncResult.fieldsSynced,
     queryLibraryFields,
     businessKnowledge,
+    sqlTemplates,
   };
 }
 
 async function phase3Index(repos: ReturnType<typeof createRepositories>): Promise<{
   metadataIndexed: number;
   businessIndexed: number;
+  templatesIndexed: number;
 }> {
   console.log('[seed:settle] Phase 3: Vector index');
   const metadataIndexed = await indexMetadata(repos);
   const businessIndexed = await indexBusiness();
-  console.log(`[seed:settle] indexed metadata=${metadataIndexed} business=${businessIndexed}`);
-  return { metadataIndexed, businessIndexed };
+  const templatesIndexed = await indexTemplates();
+  console.log(
+    `[seed:settle] indexed metadata=${metadataIndexed} business=${businessIndexed} templates=${templatesIndexed}`,
+  );
+  return { metadataIndexed, businessIndexed, templatesIndexed };
 }
 
 async function main(): Promise<void> {
@@ -383,9 +483,16 @@ async function main(): Promise<void> {
 
   if (ifNeeded && !force) {
     const marker = readSeedMarker();
-    if (marker) {
-      console.log(`[seed:settle] already applied at ${marker.completedAt}, skipping (--force to re-run)`);
+    if (marker && marker.version >= SEED_MARKER_VERSION) {
+      console.log(
+        `[seed:settle] already applied at ${marker.completedAt} (v${marker.version}), skipping (--force to re-run)`,
+      );
       return;
+    }
+    if (marker && marker.version < SEED_MARKER_VERSION) {
+      console.log(
+        `[seed:settle] marker v${marker.version} < v${SEED_MARKER_VERSION}, re-running seed`,
+      );
     }
   }
 
@@ -400,7 +507,7 @@ async function main(): Promise<void> {
 
   const metaResult = await phase2HermesMeta(repos, logger, datasourceId);
 
-  let indexResult = { metadataIndexed: 0, businessIndexed: 0 };
+  let indexResult = { metadataIndexed: 0, businessIndexed: 0, templatesIndexed: 0 };
   if (!skipIndex) {
     try {
       indexResult = await phase3Index(repos);
@@ -416,6 +523,7 @@ async function main(): Promise<void> {
   console.log('\n[seed:settle] ===== Summary =====');
   console.log(`  Database:        ${SETTLE_DATABASE}`);
   console.log(`  Datasource ID:   ${datasourceId}`);
+  console.log(`  请在 .env 设置:   DEFAULT_DATASOURCE_ID=${datasourceId}`);
   console.log(`  Tables synced:   ${metaResult.tablesSynced}`);
   console.log(`  Fields synced:   ${metaResult.fieldsSynced}`);
   console.log(`  Query library:   ${metaResult.queryLibraryFields} fields`);
@@ -423,6 +531,7 @@ async function main(): Promise<void> {
   if (!skipIndex) {
     console.log(`  Qdrant metadata: ${indexResult.metadataIndexed} points`);
     console.log(`  Qdrant business: ${indexResult.businessIndexed} points`);
+    console.log(`  Qdrant templates: ${indexResult.templatesIndexed} points`);
   }
   writeSeedMarker({
     datasourceId,

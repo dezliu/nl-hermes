@@ -71,6 +71,7 @@ const typeDefs = `#graphql
     conversationId: ID
     query: String!
     mode: GenerationMode!
+    datasourceId: ID
     templateId: ID
     templateType: GenerationMode
     templateParameters: [TemplateParameterInput!]

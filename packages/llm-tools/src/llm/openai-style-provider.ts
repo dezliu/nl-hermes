@@ -23,19 +23,38 @@ function contextSummary(items: unknown[]): string {
 }
 
 function buildSystemPrompt(rolePrompt?: RolePromptInput): string {
-  const parts = ['安全约束：仅生成 SELECT 查询；禁止 DDL/DML；仅引用上下文中的表与字段。'];
+  const parts = [
+    '安全约束：仅生成 SELECT 查询；禁止 DDL/DML；仅引用上下文中的表与字段。',
+    '字段约束：WHERE/SELECT/ORDER BY 中的列名必须出现在 Schema 上下文中；禁止臆造 trade_date、created_at 等上下文中不存在的列名。',
+    '时间过滤：若用户指定时间范围，必须使用 Schema 中已有的日期/时间字段（如 gmt_create、finish_time）；若上下文无合适时间字段，在 explanation 中说明而非编造列名。',
+  ];
   if (rolePrompt?.persona) parts.push(`角色设定: ${rolePrompt.persona}`);
   if (rolePrompt?.constraints) parts.push(`系统限制: ${rolePrompt.constraints}`);
   return parts.join('\n\n');
 }
 
-export function createOpenAiStyleLlmProvider(client: OpenAiCompatibleClient): LlmProvider {
+async function completeJson(
+  client: OpenAiCompatibleClient,
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  onThinking?: (chunk: string) => void,
+): Promise<string> {
+  if (onThinking) {
+    return client.streamChat(messages, { onDelta: onThinking });
+  }
+  return client.chat(messages);
+}
+
+export function createOpenAiStyleLlmProvider(
+  client: OpenAiCompatibleClient,
+  fastClient?: OpenAiCompatibleClient,
+): LlmProvider {
   const fallback = createMockLlmProvider();
+  const lightClient = fastClient ?? client;
 
   return {
     async classifyIntent(input) {
       try {
-        const content = await client.chat([
+        const content = await lightClient.chat([
           {
             role: 'system',
             content:
@@ -78,7 +97,7 @@ export function createOpenAiStyleLlmProvider(client: OpenAiCompatibleClient): Ll
 
     async rewriteQueries(input) {
       try {
-        const content = await client.chat([
+        const content = await lightClient.chat([
           {
             role: 'system',
             content: '生成 3 条语义检索改写查询。仅返回 JSON：{"queries":["string","string","string"]}。',
@@ -129,14 +148,14 @@ export function createOpenAiStyleLlmProvider(client: OpenAiCompatibleClient): Ll
 
     async generateSql(input) {
       try {
-        const content = await client.chat([
+        const messages = [
           {
-            role: 'system',
+            role: 'system' as const,
             content:
               `${buildSystemPrompt(input.rolePrompt)}\n\n你是 SQL 生成助手。仅返回 JSON：{"sql":"string","explanation":"string"}。SQL 须为 MySQL 方言，不要 markdown。`,
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: [
               `用户问题: ${input.query}`,
               `模式: ${input.mode}`,
@@ -148,7 +167,9 @@ export function createOpenAiStyleLlmProvider(client: OpenAiCompatibleClient): Ll
               .filter(Boolean)
               .join('\n\n'),
           },
-        ]);
+        ];
+
+        const content = await completeJson(client, messages, input.onThinking);
 
         const parsed = extractJson(content) as { sql?: string; explanation?: string };
         if (!parsed.sql) throw new Error('missing sql field');
@@ -164,14 +185,14 @@ export function createOpenAiStyleLlmProvider(client: OpenAiCompatibleClient): Ll
 
     async generateReport(input) {
       try {
-        const content = await client.chat([
+        const messages = [
           {
-            role: 'system',
+            role: 'system' as const,
             content:
               `${buildSystemPrompt(input.rolePrompt)}\n\n你是报表生成助手。仅返回 JSON：{"sql":"string","chartType":"line"|"bar"|"table","chartConfig":{},"explanation":"string"}。chartConfig 使用 xField/yField 字符串键。`,
           },
           {
-            role: 'user',
+            role: 'user' as const,
             content: [
               `用户问题: ${input.query}`,
               `Schema:\n${contextSummary(input.schemaContext)}`,
@@ -182,7 +203,9 @@ export function createOpenAiStyleLlmProvider(client: OpenAiCompatibleClient): Ll
               .filter(Boolean)
               .join('\n\n'),
           },
-        ]);
+        ];
+
+        const content = await completeJson(client, messages, input.onThinking);
 
         const parsed = extractJson(content) as {
           sql?: string;

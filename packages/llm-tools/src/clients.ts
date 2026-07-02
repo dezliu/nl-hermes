@@ -116,6 +116,39 @@ export class MetadataClient {
   listQueryLibrary(): Promise<{ items: { tableName: string; fieldName: string }[] }> {
     return getJson(`${this.opts.baseUrl}/v1/meta/query-library`, this.opts);
   }
+
+  listDatasources(): Promise<{ items: { id: string; name: string }[] }> {
+    return getJson(`${this.opts.baseUrl}/v1/datasources`, this.opts);
+  }
+
+  private async datasourceExists(id: string): Promise<boolean> {
+    try {
+      await getJson(`${this.opts.baseUrl}/v1/datasources/${id}`, this.opts);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async resolveDatasourceId(preferred?: string): Promise<string> {
+    if (preferred && (await this.datasourceExists(preferred))) {
+      return preferred;
+    }
+
+    const envId = process.env.DEFAULT_DATASOURCE_ID?.trim();
+    if (envId && (await this.datasourceExists(envId))) {
+      return envId;
+    }
+
+    const { items } = await this.listDatasources();
+    if (items.length > 0) {
+      return items[0]!.id;
+    }
+
+    throw new Error(
+      '未配置有效数据源。请执行 pnpm seed:settle 并在 .env 设置 DEFAULT_DATASOURCE_ID。',
+    );
+  }
 }
 
 export function createMetadataClient(

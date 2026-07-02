@@ -87,6 +87,8 @@ export type ValidateSqlRequest = {
   sql: string;
   datasourceId: string;
   maxRows?: number;
+  /** SQL 模式仅做 EXPLAIN，跳过 COUNT 子查询以提速 */
+  lightweight?: boolean;
 };
 
 export type ValidateSqlResponse = {
@@ -100,6 +102,8 @@ export type ChatStreamPhase = 'understanding' | 'retrieving' | 'generating';
 export type ChatStreamEvent =
   | { type: 'phase'; phase: ChatStreamPhase }
   | { type: 'chunk'; content: string }
+  | { type: 'thinking'; content: string; done?: boolean }
+  | { type: 'step'; step: string; detail?: string }
   | { type: 'templates'; results: TemplateMatchResult[] }
   | {
       type: 'done';
@@ -119,6 +123,7 @@ export type StartChatRequest = {
   query: string;
   mode: 'sql' | 'report';
   traceId?: string;
+  datasourceId?: string;
   /** Phase 6: apply template with filled parameters */
   templateId?: string;
   templateType?: 'sql' | 'report';

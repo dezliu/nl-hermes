@@ -72,6 +72,7 @@ export class SqlExecutor {
     sql: string,
     ds: DatasourceConfig,
     maxRows = 1000,
+    lightweight = false,
   ): Promise<ValidateSqlResponse> {
     const errors: StructuredError[] = [];
     if (!isSelectOnly(sql)) {
@@ -91,13 +92,15 @@ export class SqlExecutor {
         database: ds.databaseName,
       });
       await conn.query(`EXPLAIN ${sql.replace(/;\s*$/, '')}`);
-      const countSql = `SELECT COUNT(*) AS cnt FROM (${sql.replace(/;\s*$/, '')}) AS _hermes_sub`;
-      const [countRows] = await conn.query(countSql);
-      await conn.end();
-      const cnt = Number((countRows as { cnt: number }[])[0]?.cnt ?? 0);
-      if (cnt > maxRows) {
-        errors.push(buildRowLimitError(maxRows));
+      if (!lightweight) {
+        const countSql = `SELECT COUNT(*) AS cnt FROM (${sql.replace(/;\s*$/, '')}) AS _hermes_sub`;
+        const [countRows] = await conn.query(countSql);
+        const cnt = Number((countRows as { cnt: number }[])[0]?.cnt ?? 0);
+        if (cnt > maxRows) {
+          errors.push(buildRowLimitError(maxRows));
+        }
       }
+      await conn.end();
       return { valid: errors.length === 0, errors };
     } catch (err) {
       errors.push(buildSyntaxError(err instanceof Error ? err.message : '校验失败'));

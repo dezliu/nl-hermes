@@ -7,6 +7,7 @@ export {
   createLlmProviderFromEnv,
   createMockLlmProvider,
   createOpenAiLlmProvider,
+  verifyLlmConnection,
 } from './llm/factory.js';
 export { resolveLlmConfig } from './llm/config.js';
 export type { LlmProvider, LlmProviderName, ResolvedLlmConfig, ChatHistoryItem } from './llm/types.js';

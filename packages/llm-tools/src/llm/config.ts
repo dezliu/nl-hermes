@@ -47,5 +47,6 @@ export function resolveLlmConfig(env: NodeJS.ProcessEnv = process.env): Resolved
     apiKey: (env[defaults.apiKeyEnv] ?? '').trim(),
     baseUrl: trimTrailingSlash(env[defaults.baseUrlEnv] ?? defaults.defaultBaseUrl),
     model: (env[defaults.modelEnv] ?? defaults.defaultModel).trim(),
+    fastModel: (env.LLM_FAST_MODEL ?? '').trim() || undefined,
   };
 }

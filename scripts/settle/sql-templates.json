@@ -1,0 +1,7 @@
+[
+  {
+    "name": "近7天资金流水",
+    "scenarioDescription": "查询最近7天 fund_flow 跨系统资金流水账务记录，按创建时间倒序",
+    "sqlBody": "SELECT business_id, amount, in_ex_type, settlement_type_code, gmt_create\nFROM fund_flow\nWHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)\nORDER BY gmt_create DESC"
+  }
+]

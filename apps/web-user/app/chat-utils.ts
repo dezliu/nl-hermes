@@ -8,6 +8,11 @@ export const PHASE_LABEL = {
 
 export type Phase = keyof typeof PHASE_LABEL | 'idle';
 
+export type WorkflowStep = {
+  step: string;
+  detail?: string;
+};
+
 export const TEMPLATE_MATCH_DEBOUNCE_MS = 2000;
 
 export function buildTemplatePrompt(mode: 'sql' | 'report'): string {

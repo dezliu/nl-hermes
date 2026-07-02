@@ -28,6 +28,7 @@ function mockDeps(overrides: Partial<WorkflowDeps> = {}): WorkflowDeps {
     logger: createLogger({ service: 'workflow-test' }),
     emit: (e) => events.push(e),
     signal: { isInterrupted: () => false },
+    datasourceId: 'ds1',
     ...overrides,
   };
 }

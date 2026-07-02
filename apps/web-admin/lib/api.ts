@@ -25,16 +25,91 @@ async function request<T>(base: string, path: string, init?: RequestInit): Promi
   return res.json() as Promise<T>;
 }
 
+export type MetaTableItem = {
+  id: string;
+  physicalName: string;
+  businessName?: string | null;
+  description?: string | null;
+  source: string;
+  sourceStatus?: string;
+  inQueryLibrary: boolean;
+  fields?: MetaFieldItem[];
+};
+
+export type MetaFieldItem = {
+  id: string;
+  physicalName: string;
+  businessName?: string | null;
+  description?: string | null;
+  dataType: string;
+  inQueryLibrary: boolean;
+  isSensitive: boolean;
+  sourceStatus?: string;
+  synonyms?: { synonym: string }[];
+};
+
+export type SyncPreviewField = {
+  physicalName: string;
+  dataType: string;
+  columnComment?: string;
+};
+
+export type SyncPreviewTable = {
+  physicalName: string;
+  tableComment?: string;
+  fields: SyncPreviewField[];
+};
+
+export type SyncDatasourceOptions = {
+  mode?: 'full' | 'selective';
+  tables?: Array<{ physicalName: string; fields?: string[] }>;
+  defaultInQueryLibrary?: boolean;
+};
+
+export type SyncDatasourceResult = {
+  tablesSynced: number;
+  fieldsSynced: number;
+};
+
 export const metaApi = {
   listDatasources: () => request<{ items: unknown[] }>(METADATA_URL, '/v1/datasources'),
   createDatasource: (body: unknown) =>
     request(METADATA_URL, '/v1/datasources', { method: 'POST', body: JSON.stringify(body) }),
   testDatasource: (id: string) =>
     request(METADATA_URL, `/v1/datasources/${id}/test`, { method: 'POST' }),
-  syncDatasource: (id: string) =>
-    request(METADATA_URL, `/v1/datasources/${id}/sync`, { method: 'POST' }),
+  previewSync: (id: string) =>
+    request<{ tables: SyncPreviewTable[] }>(METADATA_URL, `/v1/datasources/${id}/sync/preview`),
+  syncDatasource: (id: string, body?: SyncDatasourceOptions) =>
+    request<SyncDatasourceResult>(METADATA_URL, `/v1/datasources/${id}/sync`, {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+    }),
   listTables: (datasourceId: string) =>
-    request<{ items: unknown[] }>(METADATA_URL, `/v1/datasources/${datasourceId}/tables`),
+    request<{ items: MetaTableItem[] }>(METADATA_URL, `/v1/datasources/${datasourceId}/tables`),
+  getTable: (id: string) =>
+    request<{ item: MetaTableItem }>(METADATA_URL, `/v1/meta/tables/${id}`),
+  updateTable: (
+    id: string,
+    body: Partial<{ businessName: string; description: string; inQueryLibrary: boolean }>,
+  ) =>
+    request<{ item: MetaTableItem }>(METADATA_URL, `/v1/meta/tables/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  updateField: (
+    id: string,
+    body: Partial<{
+      businessName: string;
+      description: string;
+      inQueryLibrary: boolean;
+      isSensitive: boolean;
+      synonyms: string[];
+    }>,
+  ) =>
+    request<{ item: MetaTableItem }>(METADATA_URL, `/v1/meta/fields/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   listRoles: () => request<{ items: unknown[] }>(METADATA_URL, '/v1/prompts/roles'),
   listPromptVersions: (roleId?: string) =>
     request<{ items: unknown[] }>(

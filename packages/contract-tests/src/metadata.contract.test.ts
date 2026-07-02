@@ -36,4 +36,22 @@ describe('metadata-service contract', () => {
       .set(HTTP_HEADERS.SERVICE_TOKEN, 'phase9-token');
     expect([200, 500]).toContain(allowed.status);
   });
+
+  it('should_match_sync_preview_shape_when_datasource_missing', async () => {
+    const res = await request(app).get('/v1/datasources/nonexistent-id/sync/preview');
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'not_found' });
+  });
+
+  it('should_accept_selective_sync_body_shape', async () => {
+    const res = await request(app)
+      .post('/v1/datasources/nonexistent-id/sync')
+      .send({
+        mode: 'selective',
+        tables: [{ physicalName: 't1', fields: ['id'] }],
+        defaultInQueryLibrary: true,
+      });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'not_found' });
+  });
 });

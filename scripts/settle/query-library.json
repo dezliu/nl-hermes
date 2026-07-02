@@ -72,7 +72,7 @@
         { "physicalName": "amount", "synonyms": ["交易金额", "金额"] },
         { "physicalName": "trade_status", "synonyms": ["交易状态"] },
         { "physicalName": "biz_code", "synonyms": ["业务编号"] },
-        { "physicalName": "finish_time", "synonyms": ["完成时间"] }
+        { "physicalName": "finish_time", "synonyms": ["完成时间", "交易时间"] }
       ]
     },
     {
@@ -101,7 +101,8 @@
         { "physicalName": "business_id", "synonyms": ["流水号", "幂等号"] },
         { "physicalName": "amount", "synonyms": ["金额", "交易金额"] },
         { "physicalName": "in_ex_type", "synonyms": ["收支类型", "收入支出"] },
-        { "physicalName": "settlement_type_code", "synonyms": ["结算类型"] }
+        { "physicalName": "settlement_type_code", "synonyms": ["结算类型"] },
+        { "physicalName": "gmt_create", "synonyms": ["创建时间", "流水时间", "交易时间"] }
       ]
     },
     {
@@ -138,7 +139,8 @@
         { "physicalName": "depot_code", "synonyms": ["门店编号"] },
         { "physicalName": "trade_code", "synonyms": ["交易号"] },
         { "physicalName": "change_amount", "synonyms": ["变动金额"] },
-        { "physicalName": "balance_after", "synonyms": ["变动后余额"] }
+        { "physicalName": "balance_after", "synonyms": ["变动后余额"] },
+        { "physicalName": "gmt_create", "synonyms": ["创建时间", "流水时间", "变动时间"] }
       ]
     },
     {

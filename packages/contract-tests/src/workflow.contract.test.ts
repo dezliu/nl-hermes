@@ -58,6 +58,8 @@ function mockDeps(overrides: Partial<WorkflowDeps> = {}): WorkflowDeps {
         allowedFields: [],
       }),
       listQueryLibrary: vi.fn().mockResolvedValue({ items: [] }),
+      listDatasources: vi.fn().mockResolvedValue({ items: [{ id: 'ds1', name: 'demo' }] }),
+      resolveDatasourceId: vi.fn().mockResolvedValue('ds1'),
     } as WorkflowDeps['metadata'],
     llm: createMockLlmProvider(),
     logger: createLogger({ service: 'workflow-nodes-test' }),
@@ -178,6 +180,14 @@ describe('workflow node unit tests', () => {
     expect(result.currentPhase).toBe('generating');
   });
 
+  it('should_skip_rag_rewrite_for_business_query', async () => {
+    const deps = mockDeps();
+    const state = baseState('sql');
+    state.query = '查询近7天资金流水';
+    const result = await ragPrepareNode(state, deps);
+    expect(result.ragQueries).toEqual(['查询近7天资金流水']);
+  });
+
   it('should_validate_sql_in_both_modes', async () => {
     const deps = mockDeps({
       report: {
@@ -185,7 +195,7 @@ describe('workflow node unit tests', () => {
         executeQuery: vi.fn().mockResolvedValue({ ok: true, rows: [], rowCount: 0 }),
         validateSql: vi.fn().mockResolvedValue({
           valid: false,
-          errors: [{ message: 'unknown column' }],
+          errors: [{ code: 'SYNTAX_ERROR', message: 'unknown column' }],
         }),
       } as WorkflowDeps['report'],
     });
@@ -195,6 +205,67 @@ describe('workflow node unit tests', () => {
     const result = await validateResultNode(state, deps);
     expect(result.lastError).toContain('unknown');
     expect(routeAfterValidate({ ...state, ...result })).toBe('generate_sql');
+  });
+
+  it('should_fail_fast_when_datasource_missing', async () => {
+    const deps = mockDeps({
+      datasourceId: undefined,
+      report: {
+        matchTemplates: vi.fn().mockResolvedValue({ results: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ ok: true, rows: [], rowCount: 0 }),
+        validateSql: vi.fn(),
+      } as WorkflowDeps['report'],
+    });
+    const state = baseState('sql');
+    state.generatedSql = 'SELECT 1';
+    const result = await validateResultNode(state, deps);
+    expect(result.intent).toBe('refuse');
+    expect(result.refuseReason).toContain('未配置有效数据源');
+    expect(deps.report.validateSql).not.toHaveBeenCalled();
+  });
+
+  it('should_fail_fast_on_datasource_not_found_from_report', async () => {
+    const deps = mockDeps({
+      report: {
+        matchTemplates: vi.fn().mockResolvedValue({ results: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ ok: true, rows: [], rowCount: 0 }),
+        validateSql: vi.fn().mockResolvedValue({
+          valid: false,
+          errors: [{ code: 'DATASOURCE_NOT_FOUND', message: '数据源不存在' }],
+        }),
+      } as WorkflowDeps['report'],
+    });
+    const state = baseState('sql');
+    state.generatedSql = 'SELECT 1';
+    state.maxValidateRetries = 2;
+    const result = await validateResultNode(state, deps);
+    expect(result.intent).toBe('refuse');
+    expect(result.validateRetryCount).toBeUndefined();
+    expect(routeAfterValidate({ ...state, ...result })).toBe('refuse');
+  });
+
+  it('should_use_lightweight_validate_for_sql_mode', async () => {
+    const validateSql = vi.fn().mockResolvedValue({ valid: true, errors: [] });
+    const deps = mockDeps({
+      report: {
+        matchTemplates: vi.fn().mockResolvedValue({ results: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ ok: true, rows: [], rowCount: 0 }),
+        validateSql,
+      } as WorkflowDeps['report'],
+    });
+    const state = baseState('sql');
+    state.generatedSql = 'SELECT 1';
+    await validateResultNode(state, deps);
+    expect(validateSql).toHaveBeenCalledWith(
+      expect.objectContaining({ lightweight: true, datasourceId: 'ds1' }),
+    );
+  });
+
+  it('should_refuse_early_when_datasource_missing_in_load_context', async () => {
+    const deps = mockDeps({ datasourceId: undefined });
+    const result = await loadContextNode(baseState(), deps);
+    expect(result.intent).toBe('refuse');
+    expect(result.refuseReason).toContain('未配置有效数据源');
   });
 
   it('should_execute_report_after_validate', async () => {

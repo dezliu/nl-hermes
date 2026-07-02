@@ -1,7 +1,12 @@
 import type { Logger } from '@hermes/shared';
 import type { Repositories } from '../repositories/index.js';
 import { encryptSecret, newId } from '../lib/crypto.js';
-import { syncDatasourceMetadata, testDatasourceConnection } from './datasource-service.js';
+import {
+  previewDatasourceSchema,
+  syncDatasourceMetadata,
+  testDatasourceConnection,
+  type SyncOptions,
+} from './datasource-service.js';
 
 export class DatasourceService {
   constructor(
@@ -105,7 +110,7 @@ export class DatasourceService {
     return result;
   }
 
-  async sync(id: string, traceId?: string) {
+  async previewSync(id: string, traceId?: string) {
     const ds = await this.repos.datasource.findById(id);
     if (!ds) return null;
     const test = await testDatasourceConnection(ds);
@@ -113,6 +118,26 @@ export class DatasourceService {
       await this.repos.datasource.patch(id, { connectionStatus: 'failed' });
       throw new Error(`连接失败: ${test.message}`);
     }
-    return syncDatasourceMetadata(ds, this.repos.meta, this.repos.datasource, this.repos.audit, this.logger, traceId);
+    this.logger.info('datasource.sync.preview', { traceId, datasourceId: id });
+    return previewDatasourceSchema(ds);
+  }
+
+  async sync(id: string, options?: SyncOptions, traceId?: string) {
+    const ds = await this.repos.datasource.findById(id);
+    if (!ds) return null;
+    const test = await testDatasourceConnection(ds);
+    if (!test.ok) {
+      await this.repos.datasource.patch(id, { connectionStatus: 'failed' });
+      throw new Error(`连接失败: ${test.message}`);
+    }
+    return syncDatasourceMetadata(
+      ds,
+      this.repos.meta,
+      this.repos.datasource,
+      this.repos.audit,
+      this.logger,
+      traceId,
+      options,
+    );
   }
 }

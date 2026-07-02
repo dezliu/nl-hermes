@@ -102,7 +102,7 @@ export class ReportService {
       return { valid: false, errors: [{ code: 'DATASOURCE_NOT_FOUND', message: '数据源不存在' }] };
     }
     const maxRows = req.maxRows ?? (await this.getMaxRows());
-    const result = await this.sqlExecutor.validate(req.sql, ds, maxRows);
+    const result = await this.sqlExecutor.validate(req.sql, ds, maxRows, req.lightweight ?? false);
     this.logger.info('report.sql.validated', { traceId, valid: result.valid });
     return result;
   }

@@ -16,3 +16,12 @@ export function computeRagScore(schemaContext: RetrieveResult[], businessKnowled
   const bizScore = businessKnowledge[0]?.score ?? 0;
   return metaScore * 0.7 + bizScore * 0.3;
 }
+
+/** RAG 分数达到阈值，或在有 schema 上下文时放宽到 0.25 以上 */
+export function isRagScoreAcceptable(
+  ragScore: number,
+  minRagScore: number,
+  schemaContext: RetrieveResult[],
+): boolean {
+  return ragScore >= minRagScore || (ragScore >= 0.25 && schemaContext.length > 0);
+}
