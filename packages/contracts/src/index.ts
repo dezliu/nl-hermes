@@ -93,3 +93,67 @@ export type ValidateSqlResponse = {
   valid: boolean;
   errors: StructuredError[];
 };
+
+/** Chat / orchestrator API contracts (Phase 5) */
+export type ChatStreamPhase = 'understanding' | 'retrieving' | 'generating';
+
+export type ChatStreamEvent =
+  | { type: 'phase'; phase: ChatStreamPhase }
+  | { type: 'chunk'; content: string }
+  | { type: 'templates'; results: TemplateMatchResult[] }
+  | {
+      type: 'done';
+      runId: string;
+      messageId: string;
+      conversationId: string;
+      status: 'completed' | 'interrupted' | 'failed';
+      content: string;
+      metadata?: Record<string, unknown>;
+    }
+  | { type: 'error'; code: string; message: string };
+
+export type StartChatRequest = {
+  userId: string;
+  roleId?: string;
+  conversationId?: string;
+  query: string;
+  mode: 'sql' | 'report';
+  traceId?: string;
+};
+
+export type StartChatResponse = {
+  runId: string;
+  conversationId: string;
+  checkpointId: string;
+};
+
+export type CancelChatRequest = {
+  userId: string;
+  runId: string;
+  conversationId: string;
+};
+
+export type ContinueChatRequest = {
+  userId: string;
+  roleId?: string;
+  conversationId: string;
+  checkpointId: string;
+  query: string;
+  mode: 'sql' | 'report';
+  traceId?: string;
+};
+
+export type RolePrompt = {
+  roleId: string | null;
+  persona: string;
+  constraints: string;
+  version: number;
+};
+
+export type UserPermissions = {
+  userId: string;
+  roleId: string;
+  allowedTables: string[];
+  allowedFields: string[];
+  datasourceId?: string;
+};

@@ -1,6 +1,7 @@
 import express, { type Express, type Router } from 'express';
-import cors from 'cors';
 import { serviceAuthMiddleware, type ServiceAuthOptions } from './auth.js';
+import { browserCorsMiddleware } from './cors.js';
+import { loadEnv } from './load-env.js';
 import { createLogger } from './logger.js';
 import { requestLoggingMiddleware } from './middleware.js';
 import { traceIdMiddleware } from './trace.js';
@@ -15,10 +16,11 @@ export type ServiceAppOptions = {
 };
 
 export function createServiceApp(serviceName: string, options: ServiceAppOptions = {}): Express {
+  loadEnv();
   const app = express();
   const logger = createLogger({ service: serviceName });
 
-  app.use(cors());
+  app.use(browserCorsMiddleware());
   app.use(express.json());
   app.use(traceIdMiddleware({ logger }));
   app.use(requestLoggingMiddleware());

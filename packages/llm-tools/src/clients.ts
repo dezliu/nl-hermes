@@ -4,9 +4,11 @@ import type {
   ExecuteQueryResponse,
   RetrieveRequest,
   RetrieveResponse,
+  RolePrompt,
   ScoreRequest,
   ScoreResponse,
   TemplateMatchRequest,
+  UserPermissions,
   ValidateSqlRequest,
   ValidateSqlResponse,
 } from '@hermes/contracts';
@@ -79,4 +81,46 @@ export function createReportClient(
   traceId?: string,
 ) {
   return new ReportClient({ baseUrl, serviceName: 'orchestrator', traceId });
+}
+
+async function getJson<T>(url: string, opts: ClientOptions): Promise<T> {
+  const res = await fetch(url, { headers: buildHeaders(opts) });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export class MetadataClient {
+  constructor(private readonly opts: ClientOptions) {}
+
+  getActivePrompt(roleId: string | null): Promise<RolePrompt | null> {
+    const path = roleId ? `/v1/prompts/${roleId}/active` : '/v1/prompts/default/active';
+    return getJson<{ item: RolePrompt }>(`${this.opts.baseUrl}${path}`, this.opts)
+      .then((r) => r.item)
+      .catch(() => null);
+  }
+
+  getUserPermissions(userId: string): Promise<UserPermissions> {
+    return getJson<UserPermissions>(`${this.opts.baseUrl}/v1/permissions/${userId}`, this.opts).catch(
+      () => ({
+        userId,
+        roleId: 'default',
+        allowedTables: [],
+        allowedFields: [],
+      }),
+    );
+  }
+
+  listQueryLibrary(): Promise<{ items: { tableName: string; fieldName: string }[] }> {
+    return getJson(`${this.opts.baseUrl}/v1/meta/query-library`, this.opts);
+  }
+}
+
+export function createMetadataClient(
+  baseUrl = process.env.METADATA_SERVICE_URL ?? 'http://localhost:4050',
+  traceId?: string,
+) {
+  return new MetadataClient({ baseUrl, serviceName: 'orchestrator', traceId });
 }

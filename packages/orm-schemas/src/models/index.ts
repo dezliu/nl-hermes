@@ -8,3 +8,6 @@ export { AuditLogModel } from './audit-log.js';
 export { SqlTemplateModel } from './sql-template.js';
 export { ReportTemplateModel } from './report-template.js';
 export { RoleModel } from './role.js';
+export { ConversationModel } from './conversation.js';
+export { MessageModel } from './message.js';
+export { WorkflowCheckpointModel } from './workflow-checkpoint.js';
