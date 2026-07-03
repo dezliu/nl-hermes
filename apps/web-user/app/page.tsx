@@ -18,7 +18,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import type { ChatStreamEvent, ConversationMessageRecord, ConversationSummary, TemplateMatchResult } from '@hermes/contracts';
+import type { ChatStreamEvent, ConversationMessageRecord, ConversationSummary, ReportArtifact, ReportSpec, TemplateMatchResult } from '@hermes/contracts';
 import {
   PHASE_LABEL,
   TEMPLATE_MATCH_DEBOUNCE_MS,
@@ -36,6 +36,7 @@ import {
   storeDatasourceId,
   type DatasourceSummary,
 } from './api';
+import { ReportViewer } from '../components/ReportViewer';
 
 const { TextArea } = Input;
 const { Text, Paragraph, Title } = Typography;
@@ -49,6 +50,8 @@ type ChatMessage = {
   status?: 'completed' | 'interrupted' | 'failed';
   phase?: Phase;
   feedbackRating?: 'up' | 'down' | null;
+  reportSpec?: ReportSpec;
+  reportArtifact?: ReportArtifact;
 };
 
 const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? 'http://localhost:4000/graphql';
@@ -68,6 +71,7 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
 
 export default function ChatPage() {
   const [mode, setMode] = useState<'sql' | 'report'>('sql');
+  const [outputFormat, setOutputFormat] = useState<'inline' | 'web' | 'word'>('inline');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -226,6 +230,7 @@ export default function ChatPage() {
               templateParameters: opts.templateParameters
                 ? Object.entries(opts.templateParameters).map(([key, value]) => ({ key, value }))
                 : undefined,
+              outputFormat: mode === 'report' ? outputFormat : undefined,
             },
           },
         );
@@ -250,6 +255,7 @@ export default function ChatPage() {
             templateId: opts.templateId,
             templateType: opts.templateType,
             templateParameters: opts.templateParameters,
+            outputFormat: mode === 'report' ? outputFormat : undefined,
           }),
           signal: controller.signal,
         });
@@ -302,6 +308,10 @@ export default function ChatPage() {
                 next[idx] = { ...next[idx]!, content: next[idx]!.content + event.content };
                 return next;
               });
+            } else if (event.type === 'report_preview') {
+              appendAssistant({ id: assistantId, reportSpec: event.spec });
+            } else if (event.type === 'artifact_ready') {
+              appendAssistant({ id: assistantId, reportArtifact: event.artifact });
             } else if (event.type === 'done') {
               setMessages((prev) => {
                 const idx = prev.findIndex((m) => m.id === assistantId);
@@ -311,6 +321,7 @@ export default function ChatPage() {
                   event.status === 'failed' && current.content.trim()
                     ? current.content
                     : event.content || current.content;
+                const meta = event.metadata as { reportSpec?: ReportSpec; reportArtifact?: ReportArtifact } | undefined;
                 const next = [...prev];
                 next[idx] = {
                   ...current,
@@ -318,6 +329,8 @@ export default function ChatPage() {
                   content: mergedContent,
                   status: event.status,
                   phase: 'idle',
+                  reportSpec: current.reportSpec ?? meta?.reportSpec,
+                  reportArtifact: current.reportArtifact ?? meta?.reportArtifact,
                 };
                 return next;
               });
@@ -340,7 +353,7 @@ export default function ChatPage() {
         setPhase('idle');
       }
     },
-    [appendAssistant, conversationId, mode, refreshConversations, selectedDatasourceId],
+    [appendAssistant, conversationId, mode, outputFormat, refreshConversations, selectedDatasourceId],
   );
 
   const handleSend = useCallback(async () => {
@@ -424,20 +437,32 @@ export default function ChatPage() {
       const data = await gql<{ conversationMessages: ConversationMessageRecord[] }>(
         `query Messages($userId: ID!, $conversationId: ID!) {
           conversationMessages(userId: $userId, conversationId: $conversationId) {
-            id role content mode status feedbackRating
+            id role content mode status feedbackRating metadata
           }
         }`,
         { userId: DEMO_USER_ID, conversationId: id },
       );
       setConversationId(id);
       setMessages(
-        data.conversationMessages.map((m) => ({
-          id: m.id,
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.content,
-          status: m.status,
-          feedbackRating: m.feedbackRating,
-        })),
+        data.conversationMessages.map((m) => {
+          let meta: Record<string, unknown> | null = null;
+          if (m.metadata) {
+            try {
+              meta = JSON.parse(m.metadata as unknown as string) as Record<string, unknown>;
+            } catch {
+              meta = m.metadata as unknown as Record<string, unknown>;
+            }
+          }
+          return {
+            id: m.id,
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content,
+            status: m.status,
+            feedbackRating: m.feedbackRating,
+            reportSpec: meta?.reportSpec as ReportSpec | undefined,
+            reportArtifact: meta?.reportArtifact as ReportArtifact | undefined,
+          };
+        }),
       );
     } catch (err) {
       message.error(err instanceof Error ? err.message : '加载会话失败');
@@ -620,6 +645,18 @@ export default function ChatPage() {
                 { label: '报表模式', value: 'report' },
               ]}
             />
+            {mode === 'report' && (
+              <Select
+                value={outputFormat}
+                style={{ minWidth: 140 }}
+                onChange={(v) => setOutputFormat(v)}
+                options={[
+                  { value: 'inline', label: '内嵌图表' },
+                  { value: 'web', label: '网页报告' },
+                  { value: 'word', label: 'Word 文档' },
+                ]}
+              />
+            )}
           </Space>
         </div>
 
@@ -712,6 +749,9 @@ export default function ChatPage() {
                   />
                 )}
                 {m.content || (m.role === 'assistant' && streaming ? <Spin size="small" /> : null)}
+                {m.role === 'assistant' && (m.reportSpec || m.reportArtifact) && (
+                  <ReportViewer reportSpec={m.reportSpec} reportArtifact={m.reportArtifact} />
+                )}
                 {m.status === 'interrupted' && (
                   <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>（已中断）</div>
                 )}

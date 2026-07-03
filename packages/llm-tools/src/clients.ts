@@ -2,6 +2,11 @@ import { withServiceAuth, HTTP_HEADERS } from '@hermes/shared';
 import type {
   ExecuteQueryRequest,
   ExecuteQueryResponse,
+  ReportRenderRequest,
+  ReportRenderResponse,
+  ReportShareRequest,
+  ReportShareResponse,
+  ReportSpec,
   RetrieveRequest,
   RetrieveResponse,
   RolePrompt,
@@ -69,6 +74,18 @@ export class ReportClient {
 
   validateSql(req: ValidateSqlRequest): Promise<ValidateSqlResponse> {
     return postJson('/v1/query/validate', req, this.opts);
+  }
+
+  renderReport(req: ReportRenderRequest): Promise<ReportRenderResponse> {
+    return postJson('/v1/reports/render', req, this.opts);
+  }
+
+  getReport(id: string): Promise<{ spec: ReportSpec; artifact: ReportRenderResponse['artifact'] }> {
+    return getJson(`${this.opts.baseUrl}/v1/reports/${id}`, this.opts);
+  }
+
+  createShare(req: ReportShareRequest): Promise<ReportShareResponse> {
+    return postJson('/v1/reports/share', req, this.opts);
   }
 }
 

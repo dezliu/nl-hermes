@@ -58,6 +58,29 @@ export type LlmProvider = {
     chartConfig: Record<string, string>;
     explanation: string;
   }>;
+
+  analyzeReportData(input: {
+    query: string;
+    outputFormat: 'inline' | 'web' | 'word';
+    sql?: string;
+    rows: Record<string, unknown>[];
+    rowCount: number;
+    schemaContext: unknown[];
+    businessKnowledge: unknown[];
+    chartType?: string;
+    chartConfig?: Record<string, string>;
+  }): Promise<{
+    title: string;
+    summary: string;
+    insights: string[];
+    dataSources: string[];
+    caveats?: string[];
+    recommendedCharts?: Array<{
+      chartType: 'line' | 'bar' | 'table' | 'pie';
+      chartConfig: Record<string, string>;
+    }>;
+    sections?: { title: string; body: string; chartIndex?: number }[];
+  }>;
 };
 
 export type LlmProviderName = 'openai' | 'aliyun' | 'zhipu';

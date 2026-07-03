@@ -23,6 +23,7 @@ import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { GenerationLock, InterruptRegistry, RedisLike } from '../lib/redis.js';
 import type { TemplateApplyService } from './template-apply-service.js';
 import type { MetadataClosedLoopClient } from '../lib/metadata-closed-loop-client.js';
+import type { ReportArtifactRepository } from '../repositories/report-artifact-repository.js';
 import { shouldCreateTemplateCandidate } from '../lib/candidate-eligibility.js';
 
 export type ChatServiceOptions = {
@@ -34,6 +35,7 @@ export type ChatServiceOptions = {
   dbEnabled?: boolean;
   templateApply?: TemplateApplyService;
   closedLoop?: MetadataClosedLoopClient;
+  reportArtifacts?: ReportArtifactRepository;
 };
 
 export class ChatService {
@@ -87,6 +89,7 @@ export class ChatService {
       query: req.query,
       mode: req.mode,
       traceId: req.traceId,
+      outputFormat: req.outputFormat,
     });
   }
 
@@ -119,6 +122,7 @@ export class ChatService {
       query: input.query,
       checkpointId,
       traceId,
+      outputFormat: input.outputFormat,
       history: history.filter((h) => h.role === 'user' || h.role === 'assistant') as WorkflowGraphState['history'],
     });
 
@@ -198,6 +202,10 @@ export class ChatService {
         lastError: finalState.lastError,
         workflowNode: finalState.currentNode,
         userQuery: input.query,
+        outputFormat: finalState.outputFormat,
+        reportId: finalState.reportSpec?.id,
+        reportSpec: finalState.reportSpec,
+        reportArtifact: finalState.reportArtifact,
         redisRef,
       };
 
@@ -209,6 +217,20 @@ export class ChatService {
         status: assistantStatus,
         metadata: messageMetadata,
       });
+
+      if (
+        finalState.reportSpec &&
+        finalState.reportArtifact &&
+        this.opts.reportArtifacts
+      ) {
+        await this.opts.reportArtifacts.save({
+          id: finalState.reportSpec.id,
+          messageId,
+          userId: input.userId,
+          spec: finalState.reportSpec,
+          artifact: finalState.reportArtifact,
+        });
+      }
 
       if (
         assistantStatus === 'completed' &&
@@ -246,7 +268,11 @@ export class ChatService {
         conversationId,
         status: finalState.status === 'interrupted' ? 'interrupted' : finalState.status === 'failed' ? 'failed' : 'completed',
         content: finalState.generatedContent ?? '',
-        metadata: { ragScore: finalState.ragScore },
+        metadata: {
+          ragScore: finalState.ragScore,
+          reportId: finalState.reportSpec?.id,
+          reportArtifact: finalState.reportArtifact,
+        },
       });
     } catch (err) {
       this.opts.logger.error('chat.stream.failed', { runId, err: String(err) });

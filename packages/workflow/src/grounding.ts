@@ -6,10 +6,51 @@ const SQL_KEYWORDS = new Set([
   'left', 'right', 'inner', 'outer', 'group', 'by', 'order', 'having', 'limit', 'offset',
   'distinct', 'case', 'when', 'then', 'else', 'end', 'between', 'like', 'asc', 'desc',
   'union', 'all', 'exists', 'true', 'false', 'with', 'over', 'partition', 'row', 'rows',
+  'range', 'preceding', 'following', 'current', 'unbounded', 'first', 'last', 'nulls',
+  'lag', 'lead', 'ntile', 'rank', 'dense_rank', 'row_number',
   'date', 'datetime', 'timestamp', 'interval', 'day', 'week', 'month', 'year', 'hour', 'minute',
   'second', 'quarter', 'microsecond', 'curdate', 'now', 'date_sub', 'date_add', 'count', 'sum', 'avg', 'min', 'max',
   'cast', 'coalesce', 'ifnull', 'if', 'substring', 'trim', 'upper', 'lower',
 ]);
+
+/** Neutralize OVER (...) so inner ORDER BY / frame specs are not parsed as top-level clauses. */
+function stripOverClauses(sql: string): string {
+  const lower = sql.toLowerCase();
+  let result = '';
+  let i = 0;
+
+  while (i < sql.length) {
+    const rest = lower.slice(i);
+    const overMatch = rest.match(/\bover\s*\(/);
+    if (!overMatch || overMatch.index === undefined) {
+      result += sql.slice(i);
+      break;
+    }
+
+    const overStart = i + overMatch.index;
+    result += sql.slice(i, overStart);
+    const parenStart = overStart + overMatch[0].length - 1;
+
+    let depth = 0;
+    let j = parenStart;
+    for (; j < sql.length; j++) {
+      const ch = sql[j]!;
+      if (ch === '(') depth++;
+      else if (ch === ')') {
+        depth--;
+        if (depth === 0) {
+          j++;
+          break;
+        }
+      }
+    }
+
+    result += 'over(__stripped__)';
+    i = j;
+  }
+
+  return result;
+}
 
 function collectKnownTokens(schemaContext: RetrieveResult[]): Set<string> {
   const known = new Set<string>();
@@ -52,7 +93,8 @@ function extractSqlTables(sql: string): string[] {
 type QualifiedRef = { tableOrAlias: string | null; column: string };
 
 function extractQualifiedRefs(sql: string): QualifiedRef[] {
-  const stripped = sql.replace(/'[^']*'/g, ' ').replace(/"[^"]*"/g, ' ').replace(/`[^`]*`/g, ' ');
+  const withoutOver = stripOverClauses(sql);
+  const stripped = withoutOver.replace(/'[^']*'/g, ' ').replace(/"[^"]*"/g, ' ').replace(/`[^`]*`/g, ' ');
   const refs: QualifiedRef[] = [];
 
   const selectMatch = stripped.match(/\bselect\b([\s\S]*?)\bfrom\b/i);

@@ -22,11 +22,36 @@ function hasField(schemaContext: unknown[], field: string): boolean {
   return schemaContext.some((item) => String((item as { content?: string }).content ?? '').toLowerCase().includes(field));
 }
 
-function resolveDateField(schemaContext: unknown[]): string | null {
+function resolveDateField(schemaContext: unknown[], table?: string): string | null {
   for (const field of ['gmt_create', 'finish_time', 'business_time', 'upload_date']) {
     if (hasField(schemaContext, field)) return field;
   }
+  if (table === 'fund_flow') return 'gmt_create';
   return null;
+}
+
+function buildFundFlowSql(query: string, schemaContext: unknown[], errorFeedback?: string): string | null {
+  const table = resolveTable(schemaContext);
+  if (table !== 'fund_flow') return null;
+  const dateField = resolveDateField(schemaContext, table);
+  if (!dateField || !/近?\s*\d+\s*天|最近/.test(query)) return null;
+
+  if (/环比|同比|分析|趋势|汇总/.test(query) || errorFeedback) {
+    return [
+      `SELECT DATE(${dateField}) AS dt, COUNT(*) AS cnt, SUM(amount) AS total_amount`,
+      'FROM fund_flow',
+      `WHERE ${dateField} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+      `GROUP BY DATE(${dateField})`,
+      'ORDER BY dt DESC',
+    ].join('\n');
+  }
+
+  return [
+    'SELECT business_id, amount, in_ex_type, settlement_type_code, gmt_create',
+    'FROM fund_flow',
+    `WHERE ${dateField} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+    `ORDER BY ${dateField} DESC`,
+  ].join('\n');
 }
 
 export function createMockLlmProvider(): LlmProvider {
@@ -69,12 +94,13 @@ export function createMockLlmProvider(): LlmProvider {
     },
 
     async generateSql({ query, schemaContext, errorFeedback, mode, rolePrompt, onThinking }) {
+      const fundFlowSql = buildFundFlowSql(query, schemaContext, errorFeedback);
       const table = resolveTable(schemaContext);
-      const dateField = resolveDateField(schemaContext);
+      const dateField = resolveDateField(schemaContext, table);
       const timeFilter = dateField && /近?\s*\d+\s*天|最近/.test(query)
         ? `\nWHERE ${dateField} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
         : '\nWHERE 1=1';
-      const sql = `SELECT *\nFROM ${table}${timeFilter} -- ${query.slice(0, 40)}`;
+      const sql = fundFlowSql ?? `SELECT *\nFROM ${table}${timeFilter} -- ${query.slice(0, 40)}`;
       const roleHint = rolePrompt?.persona ? `（${rolePrompt.persona}）` : '';
       const explanation = errorFeedback
         ? `已根据错误反馈重试生成 SQL${roleHint}，使用上下文中的字段。`
@@ -84,11 +110,14 @@ export function createMockLlmProvider(): LlmProvider {
     },
 
     async generateReport({ query, schemaContext, errorFeedback, rolePrompt, onThinking }) {
+      const fundFlowSql = buildFundFlowSql(query, schemaContext, errorFeedback);
       const table = resolveTable(schemaContext);
-      const dateField = resolveDateField(schemaContext);
-      const sql = dateField
-        ? `SELECT DATE(${dateField}) AS dt, COUNT(*) AS cnt\nFROM ${table}\nGROUP BY 1`
-        : `SELECT COUNT(*) AS cnt\nFROM ${table}`;
+      const dateField = resolveDateField(schemaContext, table);
+      const sql = fundFlowSql ?? (
+        dateField
+          ? `SELECT DATE(${dateField}) AS dt, COUNT(*) AS cnt, SUM(amount) AS total_amount\nFROM ${table}\nWHERE ${dateField} >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)\nGROUP BY DATE(${dateField})\nORDER BY dt DESC`
+          : `SELECT COUNT(*) AS cnt\nFROM ${table}`
+      );
       const roleHint = rolePrompt?.persona ? `（${rolePrompt.persona}）` : '';
       const explanation = errorFeedback
         ? `已根据执行错误重试生成报表查询${roleHint}。`
@@ -97,8 +126,34 @@ export function createMockLlmProvider(): LlmProvider {
       return {
         sql,
         chartType: 'line',
-        chartConfig: { xField: 'dt', yField: 'cnt' },
+        chartConfig: { xField: 'dt', yField: fundFlowSql ? 'total_amount' : 'cnt' },
         explanation,
+      };
+    },
+
+    async analyzeReportData({ query, rows, rowCount, chartType, chartConfig, outputFormat }) {
+      const xField = chartConfig?.xField ?? 'dt';
+      const yField = chartConfig?.yField ?? 'cnt';
+      const title = query.slice(0, 48) || '数据报表';
+      const summary = `针对「${query}」共返回 ${rowCount} 行数据。`;
+      const insights = rowCount > 0
+        ? [`共 ${rowCount} 条记录`, `主指标字段：${yField}`]
+        : ['当前条件下无数据'];
+      const sections = outputFormat === 'word' || outputFormat === 'web'
+        ? [
+            { title: '数据概览', body: summary, chartIndex: 0 },
+            { title: '明细说明', body: insights.join('；') },
+          ]
+        : undefined;
+      return {
+        title,
+        summary,
+        insights,
+        dataSources: ['schema_context'],
+        recommendedCharts: chartType
+          ? [{ chartType: chartType as 'line' | 'bar' | 'table', chartConfig: { xField, yField } }]
+          : [{ chartType: 'table' as const, chartConfig: { xField, yField } }],
+        sections,
       };
     },
   };

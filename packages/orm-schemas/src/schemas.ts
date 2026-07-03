@@ -24,6 +24,8 @@ export const CHAT_TABLES = {
   MESSAGE_FEEDBACK: 'message_feedback',
   GENERATION_AUDIT: 'generation_audit',
   GENERATION_FEEDBACK_ITEMS: 'generation_feedback_items',
+  REPORT_ARTIFACTS: 'report_artifacts',
+  PUBLISHED_QUERIES: 'published_queries',
 } as const;
 
 export const EVAL_TABLES = {

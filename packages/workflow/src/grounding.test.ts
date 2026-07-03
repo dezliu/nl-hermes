@@ -13,6 +13,21 @@ const fundFlowSchema = [
   },
   {
     id: '2',
+    content: 'fund_flow 跨系统资金流水 amount 金额 decimal',
+    score: 0.9,
+  },
+  {
+    id: '3',
+    content: 'fund_flow 跨系统资金流水 in_ex_type 收支类型 varchar',
+    score: 0.9,
+  },
+  {
+    id: '4',
+    content: 'fund_flow 跨系统资金流水 settlement_type_code 结算类型 varchar',
+    score: 0.9,
+  },
+  {
+    id: '5',
     content: 'fund_flow 跨系统资金流水 gmt_create 创建时间 datetime',
     score: 0.9,
   },
@@ -101,6 +116,13 @@ describe('checkColumnGrounding', () => {
       sql: "SELECT order_amount FROM hst_order WHERE hst_order.order_type = 'COURIER_DELIVERY_FEE'",
       schemaContext: crossTableSchema,
     });
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts window functions with mom/yoy analysis on fund_flow', () => {
+    const sql =
+      'SELECT business_id, amount, gmt_create, COUNT(*) OVER (ORDER BY gmt_create) AS running_total, (SUM(amount) OVER (ORDER BY gmt_create ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) - SUM(amount) OVER (ORDER BY gmt_create ROWS BETWEEN 5 PRECEDING AND 6 PRECEDING)) AS yoy_change, amount - LAG(amount, 1) OVER (ORDER BY gmt_create) AS mom_change FROM fund_flow WHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) ORDER BY gmt_create DESC';
+    const result = checkColumnGrounding({ sql, schemaContext: fundFlowSchema });
     expect(result.ok).toBe(true);
   });
 });

@@ -4,12 +4,16 @@ import type {
   ExecuteQueryRequest,
   ExecuteQueryResponse,
   ReportGenerateRequest,
+  ReportRenderRequest,
+  ReportShareRequest,
+  ReportShareResponse,
   ValidateSqlRequest,
   ValidateSqlResponse,
 } from '@hermes/contracts';
 import { SqlExecutor, type DatasourceConfig } from './sql-executor.js';
 import { ApiDataFetcher } from './api-fetcher.js';
 import { isSelectOnly } from '../lib/sql-utils.js';
+import type { ArtifactRenderer } from './artifact-renderer.js';
 
 type DatasourceRow = {
   host: string;
@@ -24,6 +28,7 @@ export class ReportService {
     private readonly sqlExecutor: SqlExecutor,
     private readonly apiFetcher: ApiDataFetcher,
     private readonly logger: Logger,
+    private readonly artifactRenderer?: ArtifactRenderer,
     private readonly metadataUrl = process.env.METADATA_SERVICE_URL ?? 'http://localhost:4050',
     private readonly decryptPassword: (encrypted: string) => string = () => '',
   ) {}
@@ -120,5 +125,25 @@ export class ReportService {
 
   getApiFetcher() {
     return this.apiFetcher;
+  }
+
+  getArtifactRenderer(): ArtifactRenderer | undefined {
+    return this.artifactRenderer;
+  }
+
+  async renderReport(req: ReportRenderRequest, traceId?: string) {
+    if (!this.artifactRenderer) {
+      throw Object.assign(new Error('Artifact renderer not configured'), { code: 'NOT_CONFIGURED' });
+    }
+    this.logger.info('report.render.requested', { traceId, reportId: req.spec.id, format: req.spec.outputFormat });
+    const artifact = await this.artifactRenderer.render(req);
+    return { artifact };
+  }
+
+  async createShare(req: ReportShareRequest): Promise<ReportShareResponse> {
+    if (!this.artifactRenderer) {
+      throw Object.assign(new Error('Artifact renderer not configured'), { code: 'NOT_CONFIGURED' });
+    }
+    return this.artifactRenderer.createShare(req);
   }
 }

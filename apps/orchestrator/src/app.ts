@@ -11,6 +11,8 @@ import { createTemplateRecommendationService } from './services/template-recomme
 import { createTemplateApplyService } from './services/template-apply-service.js';
 import { createMetadataTemplateClient } from './lib/metadata-template-client.js';
 import { createMetadataClosedLoopClient } from './lib/metadata-closed-loop-client.js';
+import { ReportArtifactRepository } from './repositories/report-artifact-repository.js';
+import { mountReportRoutes } from './routes/report-routes.js';
 
 export type OrchestratorAppOptions = {
   enableServiceAuth?: boolean;
@@ -26,6 +28,7 @@ export async function createOrchestratorApp(options: OrchestratorAppOptions = {}
   const metadataTemplates = createMetadataTemplateClient();
   const closedLoop = createMetadataClosedLoopClient();
   const templateApply = createTemplateApplyService(metadataTemplates);
+  const reportArtifacts = new ReportArtifactRepository(options.dbEnabled !== false);
   const chat = new ChatService({
     logger,
     repo,
@@ -35,10 +38,12 @@ export async function createOrchestratorApp(options: OrchestratorAppOptions = {}
     dbEnabled: options.dbEnabled !== false,
     templateApply,
     closedLoop,
+    reportArtifacts,
   });
 
   const app = createServiceApp('orchestrator', options);
   mountChatRoutes(app, chat);
+  mountReportRoutes(app, reportArtifacts);
   mountUserFeatureRoutes(app, {
     conversations: createConversationService(repo),
     feedback: createFeedbackService(repo, closedLoop),

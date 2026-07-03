@@ -4,7 +4,9 @@ import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { WorkflowGraphState } from './state.js';
 import type { WorkflowDeps } from './types.js';
 import {
+  analyzeReportNode,
   clarifyNode,
+  composeSpecNode,
   directAnswerNode,
   executeReportNode,
   generateReportNode,
@@ -16,7 +18,9 @@ import {
   ragQualityGateNode,
   ragRetrieveNode,
   refuseNode,
+  renderArtifactNode,
   routeAfterExecute,
+  routeAfterSummarize,
   routeAfterGrounding,
   routeAfterIntent,
   routeAfterQualityGate,
@@ -62,6 +66,9 @@ export function buildWorkflowGraph(_deps: WorkflowDeps, checkpointer?: BaseCheck
     .addNode('validate', wrap(validateResultNode))
     .addNode('execute_report', wrap(executeReportNode))
     .addNode('summarize', wrap(summarizeResultNode))
+    .addNode('analyze_report', wrap(analyzeReportNode))
+    .addNode('compose_spec', wrap(composeSpecNode))
+    .addNode('render_artifact', wrap(renderArtifactNode))
     .addNode('grounding_check', wrap(groundingCheckNode))
     .addNode('clarify', wrap(clarifyNode))
     .addNode('direct_answer', wrap(directAnswerNode))
@@ -102,7 +109,13 @@ export function buildWorkflowGraph(_deps: WorkflowDeps, checkpointer?: BaseCheck
       summarize: 'summarize',
       refuse: 'refuse',
     })
-    .addEdge('summarize', 'grounding_check')
+    .addConditionalEdges('summarize', (input: GraphUpdate) => routeAfterSummarize(input.state), {
+      analyze_report: 'analyze_report',
+      grounding_check: 'grounding_check',
+    })
+    .addEdge('analyze_report', 'compose_spec')
+    .addEdge('compose_spec', 'render_artifact')
+    .addEdge('render_artifact', 'grounding_check')
     .addConditionalEdges('grounding_check', (input: GraphUpdate) => routeAfterGrounding(input.state), {
       refuse: 'refuse',
       stream_output: 'stream_output',

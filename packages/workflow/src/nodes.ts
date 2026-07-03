@@ -1,4 +1,5 @@
-import type { RetrieveResult } from '@hermes/contracts';
+import type { RetrieveResult, ReportChartSpec, ReportSpec } from '@hermes/contracts';
+import { randomUUID } from 'node:crypto';
 import { formatUnknownColumnFeedback } from '@hermes/shared';
 import type { WorkflowGraphState } from './state.js';
 import type { NodeResult, WorkflowDeps } from './types.js';
@@ -329,6 +330,9 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
   emitStep(deps, '校验 SQL');
 
   const columnCheck = checkColumnGrounding({ sql: state.generatedSql, schemaContext: state.schemaContext });
+  // #region agent log
+  fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a543f'},body:JSON.stringify({sessionId:'0a543f',location:'nodes.ts:validateResultNode',message:'column grounding check',data:{ok:columnCheck.ok,unknownColumns:columnCheck.unknownColumns,misassignedColumns:columnCheck.misassignedColumns,schemaContextCount:state.schemaContext.length,validateRetryCount:state.validateRetryCount,sqlPreview:state.generatedSql.slice(0,200)},timestamp:Date.now(),hypothesisId:'A-B'})}).catch(()=>{});
+  // #endregion
   if (!columnCheck.ok) {
     const detail =
       columnCheck.misassignedColumns?.join(', ') ??
@@ -471,7 +475,7 @@ export async function summarizeResultNode(state: WorkflowGraphState, deps: Workf
 
   const sqlBlock = state.generatedSql ? `\n\n\`\`\`sql\n${state.generatedSql}\n\`\`\`` : '';
   const chartLine =
-    state.mode === 'report' && state.chartConfig?.chartType
+    state.mode === 'report' && state.chartConfig?.chartType && state.outputFormat === 'inline'
       ? `\n\n图表类型：${String(state.chartConfig.chartType)}`
       : '';
   const rowLine = state.mode === 'report' ? `\n行数：${rowCount}` : '';
@@ -490,6 +494,153 @@ export async function summarizeResultNode(state: WorkflowGraphState, deps: Workf
     streamBuffer: state.streamBuffer + content,
     currentNode: 'SummarizeResult',
   };
+}
+
+export async function analyzeReportNode(state: WorkflowGraphState, deps: WorkflowDeps): Promise<NodeResult> {
+  const hit = interrupted(state, deps);
+  if (hit) return hit;
+
+  if (state.mode !== 'report') {
+    return { currentNode: 'AnalyzeReport' };
+  }
+
+  const rows = (state.executionResult?.rows as Record<string, unknown>[] | undefined) ?? [];
+  const rowCount = (state.executionResult?.rowCount as number | undefined) ?? rows.length;
+
+  emitStep(deps, '分析报表数据');
+  deps.emit({ type: 'chunk', content: '正在综合分析数据…\n' });
+
+  const analysis = await deps.llm.analyzeReportData({
+    query: state.query,
+    outputFormat: state.outputFormat ?? 'inline',
+    sql: state.generatedSql,
+    rows: rows.slice(0, 50),
+    rowCount,
+    schemaContext: state.schemaContext,
+    businessKnowledge: state.businessKnowledge,
+    chartType: state.chartConfig?.chartType ? String(state.chartConfig.chartType) : undefined,
+    chartConfig: state.chartConfig as Record<string, string> | undefined,
+  });
+
+  return {
+    reportAnalysis: analysis,
+    summaryText: analysis.summary,
+    currentNode: 'AnalyzeReport',
+  };
+}
+
+export async function composeSpecNode(state: WorkflowGraphState, deps: WorkflowDeps): Promise<NodeResult> {
+  const hit = interrupted(state, deps);
+  if (hit) return hit;
+
+  if (state.mode !== 'report' || !state.generatedSql || !deps.datasourceId) {
+    return { currentNode: 'ComposeSpec' };
+  }
+
+  const rows = (state.executionResult?.rows as Record<string, unknown>[] | undefined) ?? [];
+  const rowCount = (state.executionResult?.rowCount as number | undefined) ?? rows.length;
+  const analysis = state.reportAnalysis;
+  const primaryChartType = (state.chartConfig?.chartType as ReportChartSpec['chartType']) ?? 'table';
+  const primaryConfig = {
+    xField: String(state.chartConfig?.xField ?? 'x'),
+    yField: String(state.chartConfig?.yField ?? 'y'),
+    seriesField: state.chartConfig?.seriesField ? String(state.chartConfig.seriesField) : undefined,
+    title: analysis?.title,
+  };
+
+  const charts: ReportChartSpec[] =
+    analysis?.recommendedCharts?.map((chart) => ({
+      chartType: chart.chartType,
+      chartConfig: {
+        xField: chart.chartConfig.xField ?? primaryConfig.xField,
+        yField: chart.chartConfig.yField ?? primaryConfig.yField,
+        seriesField: chart.chartConfig.seriesField,
+        title: chart.chartConfig.title,
+      },
+    })) ?? [{ chartType: primaryChartType, chartConfig: primaryConfig }];
+
+  const reportId = state.reportSpec?.id ?? randomUUID();
+  const spec: ReportSpec = {
+    id: reportId,
+    title: analysis?.title ?? state.query.slice(0, 48),
+    userQuery: state.query,
+    sql: state.generatedSql,
+    datasourceId: deps.datasourceId,
+    userId: state.userId,
+    data: {
+      rows: rows.slice(0, 500),
+      rowCount,
+      truncated: rowCount > rows.length,
+    },
+    charts,
+    narrative: {
+      summary: analysis?.summary ?? state.summaryText ?? '',
+      insights: analysis?.insights,
+      dataSources: analysis?.dataSources,
+      caveats: analysis?.caveats,
+      sections: analysis?.sections,
+    },
+    outputFormat: state.outputFormat ?? 'inline',
+    createdAt: new Date().toISOString(),
+  };
+
+  return { reportSpec: spec, currentNode: 'ComposeSpec' };
+}
+
+export async function renderArtifactNode(state: WorkflowGraphState, deps: WorkflowDeps): Promise<NodeResult> {
+  const hit = interrupted(state, deps);
+  if (hit) return hit;
+
+  if (state.mode !== 'report' || !state.reportSpec) {
+    return { currentNode: 'RenderArtifact' };
+  }
+
+  const format = state.reportSpec.outputFormat;
+  if (format === 'web') {
+    deps.emit({ type: 'chunk', content: '正在生成网页报告…\n' });
+  } else if (format === 'word') {
+    deps.emit({ type: 'chunk', content: '正在生成 Word 文档…\n' });
+  }
+
+  emitStep(deps, '渲染报表', format);
+
+  try {
+    const gatewayBaseUrl = process.env.GATEWAY_PUBLIC_URL ?? 'http://localhost:4000';
+    const result = await deps.report.renderReport({
+      spec: state.reportSpec,
+      gatewayBaseUrl,
+    });
+
+    deps.emit({ type: 'report_preview', spec: state.reportSpec });
+
+    if (result.artifact.status === 'ready') {
+      deps.emit({ type: 'artifact_ready', artifact: result.artifact });
+      const artifactNote =
+        format === 'web'
+          ? `\n\n网页报告已生成，可预览或分享。`
+          : format === 'word'
+            ? `\n\nWord 文档已生成，可下载。`
+            : '';
+      if (artifactNote) {
+        deps.emit({ type: 'chunk', content: artifactNote });
+      }
+    } else if (result.artifact.errorMessage) {
+      deps.emit({ type: 'chunk', content: `\n\n⚠️ 报表渲染失败：${result.artifact.errorMessage}\n` });
+    }
+
+    const previewContent = `${state.generatedContent ?? ''}${format !== 'inline' ? `\n\n[报表 ID: ${state.reportSpec.id}]` : ''}`;
+
+    return {
+      reportArtifact: result.artifact,
+      generatedContent: previewContent,
+      streamBuffer: state.streamBuffer + previewContent,
+      currentNode: 'RenderArtifact',
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '报表渲染失败';
+    deps.emit({ type: 'chunk', content: `\n\n⚠️ ${msg}\n` });
+    return { lastError: msg, currentNode: 'RenderArtifact' };
+  }
 }
 
 export async function groundingCheckNode(state: WorkflowGraphState, deps: WorkflowDeps): Promise<NodeResult> {
@@ -606,6 +757,11 @@ export function routeAfterExecute(state: WorkflowGraphState): string {
   if (state.intent === 'refuse') return 'refuse';
   if (state.lastError) return 'generate_report';
   return 'summarize';
+}
+
+export function routeAfterSummarize(state: WorkflowGraphState): string {
+  if (state.mode === 'report' && state.executionResult) return 'analyze_report';
+  return 'grounding_check';
 }
 
 export function routeAfterGrounding(state: WorkflowGraphState): string {

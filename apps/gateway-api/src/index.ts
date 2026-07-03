@@ -5,9 +5,11 @@ import { expressMiddleware } from '@apollo/server/express4';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL ?? 'http://localhost:4010';
+const REPORT_SERVICE_URL = process.env.REPORT_SERVICE_URL ?? 'http://localhost:4030';
 
 const typeDefs = `#graphql
   enum GenerationMode { sql report }
+  enum ReportOutputFormat { inline web word }
   enum FeedbackRating { up down }
 
   type ChatSession {
@@ -49,6 +51,7 @@ const typeDefs = `#graphql
     status: String
     templateId: ID
     feedbackRating: FeedbackRating
+    metadata: String
   }
 
   type Query {
@@ -75,6 +78,7 @@ const typeDefs = `#graphql
     templateId: ID
     templateType: GenerationMode
     templateParameters: [TemplateParameterInput!]
+    outputFormat: ReportOutputFormat
   }
 
   input ContinueConversationInput {
@@ -256,10 +260,13 @@ const resolvers = {
       _: unknown,
       { userId, conversationId }: { userId: string; conversationId: string },
     ) => {
-      const data = await orchGet<{ items: unknown[] }>(
+      const data = await orchGet<{ items: Array<Record<string, unknown>> }>(
         `/v1/conversations/${conversationId}/messages?userId=${encodeURIComponent(userId)}`,
       );
-      return data.items;
+      return data.items.map((item) => ({
+        ...item,
+        metadata: item.metadata != null ? JSON.stringify(item.metadata) : null,
+      }));
     },
   },
   Mutation: {
@@ -288,7 +295,9 @@ const resolvers = {
 };
 
 async function main() {
-  const app = createServiceApp('gateway-api', { publicPaths: ['/graphql', '/api/chat/stream'] });
+  const app = createServiceApp('gateway-api', {
+    publicPaths: ['/graphql', '/api/chat/stream', '/api/public/r', '/api/published-queries'],
+  });
   const server = new ApolloServer({ typeDefs, resolvers });
   await server.start();
 
@@ -354,6 +363,70 @@ async function main() {
   });
 
   app.options('/api/chat/stream', corsMiddleware);
+
+  app.get('/api/reports/:id/preview', corsMiddleware, async (req, res) => {
+    const upstream = await fetch(`${REPORT_SERVICE_URL}/v1/reports/${req.params.id}/preview`, {
+      headers: withServiceAuth({}, 'gateway-api'),
+    });
+    if (!upstream.ok) {
+      res.status(upstream.status).json({ error: 'preview_failed' });
+      return;
+    }
+    const contentType = upstream.headers.get('content-type') ?? 'text/html';
+    res.setHeader('Content-Type', contentType);
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  });
+
+  app.get('/api/reports/:id/download', corsMiddleware, async (req, res) => {
+    const upstream = await fetch(`${REPORT_SERVICE_URL}/v1/reports/${req.params.id}/download`, {
+      headers: withServiceAuth({}, 'gateway-api'),
+    });
+    if (!upstream.ok) {
+      res.status(upstream.status).json({ error: 'download_failed' });
+      return;
+    }
+    const disposition = upstream.headers.get('content-disposition');
+    if (disposition) res.setHeader('Content-Disposition', disposition);
+    res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/octet-stream');
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  });
+
+  app.post('/api/reports/:id/share', corsMiddleware, express.json(), async (req, res) => {
+    try {
+      const data = await orchPost<{ shareToken: string; shareUrl: string; expiresAt: string }>(
+        `/v1/reports/${req.params.id}/share`,
+        req.body,
+      );
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: 'share_failed', message: err instanceof Error ? err.message : '分享失败' });
+    }
+  });
+
+  app.get('/api/public/r/:shareToken', corsMiddleware, async (req, res) => {
+    const upstream = await fetch(`${REPORT_SERVICE_URL}/v1/public/reports/${req.params.shareToken}`, {
+      headers: withServiceAuth({}, 'gateway-api'),
+    });
+    if (!upstream.ok) {
+      res.status(upstream.status).send('链接无效或已过期');
+      return;
+    }
+    const contentType = upstream.headers.get('content-type') ?? 'text/html';
+    res.setHeader('Content-Type', contentType);
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  });
+
+  app.get('/api/published-queries/:id/data', corsMiddleware, async (req, res) => {
+    const qs = new URLSearchParams(req.query as Record<string, string>).toString();
+    const upstream = await fetch(`${REPORT_SERVICE_URL}/v1/published-queries/${req.params.id}/data?${qs}`, {
+      headers: {
+        ...withServiceAuth({}, 'gateway-api'),
+        'x-share-token': String(req.headers['x-share-token'] ?? ''),
+      },
+    });
+    const json = await upstream.json();
+    res.status(upstream.status).json(json);
+  });
 
   app.listen(PORT, () => {
     console.log(`[gateway-api] GraphQL on :${PORT}/graphql, SSE on :${PORT}/api/chat/stream`);

@@ -51,8 +51,22 @@
 
 ```bash
 cp .env.example .env
-make up
-make migrate
+make pull-images   # 首次执行，预拉基础镜像
+make up-build      # 首次或代码变更后：构建并启动
+make up            # 日常启动：不重建镜像，秒级起容器
+```
+
+**更快的方式（推荐日常开发）：**
+
+```bash
+make infra         # 仅 MySQL/Redis/Qdrant/OpenSearch（约 10 秒）
+make dev           # infra + pnpm 热重载，改代码无需重建 Docker
+```
+
+**按需启动 Docker 后端（不含前端）：**
+
+```bash
+make stack-core    # gateway + orchestrator + rag + report，不重建镜像
 ```
 
 访问地址：

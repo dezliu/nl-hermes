@@ -15,6 +15,8 @@ export { ConversationModel } from './conversation.js';
 export { MessageModel } from './message.js';
 export { WorkflowCheckpointModel } from './workflow-checkpoint.js';
 export { MessageFeedbackModel } from './message-feedback.js';
+export { ReportArtifactModel } from './report-artifact.js';
+export { PublishedQueryModel } from './published-query.js';
 export { AlertModel } from './alert.js';
 export { EvalSetModel } from './eval-set.js';
 export { EvalCaseModel } from './eval-case.js';

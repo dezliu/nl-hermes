@@ -1,0 +1,29 @@
+# 依赖与构建产物（最大头，必须排除）
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+.turbo
+.pnpm-store
+
+# Git / IDE / 调试
+.git
+.gitignore
+.cursor
+.vscode
+**/*.log
+
+# 本地状态与演示数据标记
+.hermes
+scripts/__pycache__
+
+# 文档与计划（运行时不需要）
+docs
+*.md
+!README.md
+
+# 环境文件（由 compose env_file 注入，勿打进镜像）
+.env
+.env.*
+!.env.example

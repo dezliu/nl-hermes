@@ -96,6 +96,109 @@ export type ValidateSqlResponse = {
   errors: StructuredError[];
 };
 
+/** Report artifact contracts */
+export type ReportOutputFormat = 'inline' | 'web' | 'word';
+
+export type ReportChartType = 'line' | 'bar' | 'table' | 'pie';
+
+export type ReportChartConfig = {
+  xField: string;
+  yField: string;
+  seriesField?: string;
+  title?: string;
+};
+
+export type ReportChartSpec = {
+  chartType: ReportChartType;
+  chartConfig: ReportChartConfig;
+};
+
+export type ReportNarrative = {
+  summary: string;
+  insights?: string[];
+  dataSources?: string[];
+  caveats?: string[];
+  sections?: { title: string; body: string; chartIndex?: number }[];
+};
+
+export type ReportSpec = {
+  id: string;
+  title: string;
+  userQuery: string;
+  sql: string;
+  datasourceId: string;
+  userId?: string;
+  data: {
+    rows: Record<string, unknown>[];
+    rowCount: number;
+    truncated?: boolean;
+  };
+  charts: ReportChartSpec[];
+  narrative: ReportNarrative;
+  outputFormat: ReportOutputFormat;
+  createdAt: string;
+};
+
+export type ReportArtifactFormat = ReportOutputFormat | 'png';
+
+export type ReportArtifact = {
+  reportId: string;
+  format: ReportArtifactFormat;
+  status: 'pending' | 'ready' | 'failed';
+  storageKey?: string;
+  previewUrl?: string;
+  downloadUrl?: string;
+  shareToken?: string;
+  shareExpiresAt?: string;
+  errorMessage?: string;
+  inlinePayload?: {
+    charts: unknown[];
+    rows: Record<string, unknown>[];
+    echartsOptions?: unknown[];
+  };
+};
+
+export type ReportRenderRequest = {
+  spec: ReportSpec;
+  gatewayBaseUrl?: string;
+};
+
+export type ReportRenderResponse = {
+  artifact: ReportArtifact;
+};
+
+export type ReportShareRequest = {
+  reportId: string;
+  userId: string;
+  expiresInDays?: number;
+};
+
+export type ReportShareResponse = {
+  shareToken: string;
+  shareUrl: string;
+  expiresAt: string;
+};
+
+export type PublishedQueryAuthMode = 'owner' | 'token' | 'api_key';
+
+export type PublishedQueryRecord = {
+  id: string;
+  reportId: string;
+  sqlTemplate: string;
+  datasourceId: string;
+  parametersSchema?: Record<string, unknown>;
+  authMode: PublishedQueryAuthMode;
+  createdAt?: string;
+};
+
+export type PublishedQueryDataResponse = {
+  ok: boolean;
+  rows?: Record<string, unknown>[];
+  rowCount?: number;
+  cachedAt?: string;
+  error?: StructuredError;
+};
+
 /** Chat / orchestrator API contracts (Phase 5) */
 export type ChatStreamPhase = 'understanding' | 'retrieving' | 'generating';
 
@@ -105,6 +208,8 @@ export type ChatStreamEvent =
   | { type: 'thinking'; content: string; done?: boolean }
   | { type: 'step'; step: string; detail?: string }
   | { type: 'templates'; results: TemplateMatchResult[] }
+  | { type: 'report_preview'; spec: ReportSpec }
+  | { type: 'artifact_ready'; artifact: ReportArtifact }
   | {
       type: 'done';
       runId: string;
@@ -128,6 +233,8 @@ export type StartChatRequest = {
   templateId?: string;
   templateType?: 'sql' | 'report';
   templateParameters?: Record<string, string>;
+  /** Report mode: output delivery format (default inline) */
+  outputFormat?: ReportOutputFormat;
 };
 
 export type TemplateDetail = {
@@ -199,6 +306,7 @@ export type ContinueChatRequest = {
   query: string;
   mode: 'sql' | 'report';
   traceId?: string;
+  outputFormat?: ReportOutputFormat;
 };
 
 export type RolePrompt = {

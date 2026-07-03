@@ -1,13 +1,33 @@
-FROM node:20-alpine
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# syntax=docker/dockerfile:1
+
+ARG NODE_IMAGE=node:20-alpine
+FROM ${NODE_IMAGE}
+
+ARG NPM_REGISTRY
+ARG APK_MIRROR
+RUN if [ -n "$APK_MIRROR" ]; then sed -i "s/dl-cdn.alpinelinux.org/${APK_MIRROR}/g" /etc/apk/repositories; fi \
+    && corepack enable && corepack prepare pnpm@9.15.0 --activate \
+    && if [ -n "$NPM_REGISTRY" ]; then pnpm config set registry "$NPM_REGISTRY"; fi
+
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml ./
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 ARG SERVICE
 ARG PORT=4000
 COPY apps/${SERVICE} ./apps/${SERVICE}
-RUN pnpm install
-RUN pnpm --filter @hermes/shared build && pnpm --filter @hermes/${SERVICE} build
+
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+RUN find packages apps -name '*.tsbuildinfo' -delete 2>/dev/null || true \
+  && pnpm --filter @hermes/contracts build \
+  && pnpm --filter @hermes/shared build \
+  && pnpm --filter @hermes/llm-tools build \
+  && pnpm --filter @hermes/workflow build \
+  && pnpm --filter @hermes/orm-schemas build \
+  && pnpm --filter @hermes/${SERVICE} build
+
 ENV PORT=${PORT}
 ENV NODE_ENV=production
 WORKDIR /app/apps/${SERVICE}

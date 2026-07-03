@@ -1,13 +1,47 @@
+# 灵析 Docker Compose
+#
+# 加速用法（推荐）：
+#   make infra          # 仅 MySQL/Redis/Qdrant/OpenSearch（本地开发最快）
+#   make dev            # infra + pnpm 热重载（日常开发）
+#   make stack-core     # Docker 仅后端，不含前端
+#   make up             # 全栈启动，不重建镜像（秒级）
+#   make up-build       # 全栈重建（代码变更后）
+#
+# Profile 说明：
+#   core      后端 API + 编排 + RAG + 报表
+#   frontend  三个 Next 前端 + Nginx
+#   optional  eval-service、render-worker
+#   full      以上全部
+#
+# 国内镜像：在 .env 设置 USE_CN_MIRROR=1，或 --env-file docker/mirrors.cn.env
+
+x-docker-build-args: &docker-build-args
+  NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
+  NPM_REGISTRY: ${NPM_REGISTRY:-}
+  APK_MIRROR: ${APK_MIRROR:-}
+
+x-node-build: &node-build
+  context: .
+  dockerfile: docker/Dockerfile.service
+  args:
+    <<: *docker-build-args
+
+x-node-service: &node-service
+  pull_policy: if_not_present
+  build:
+    <<: *node-build
+
 services:
   mysql:
-    image: mysql:8.0
+    image: ${MYSQL_IMAGE:-mysql:8.0}
+    pull_policy: if_not_present
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-hermes_root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-hermes}
       MYSQL_USER: ${MYSQL_USER:-hermes}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-hermes_dev}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d
@@ -16,9 +50,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    pull_policy: if_not_present
     ports:
       - "6379:6379"
     volumes:
@@ -30,20 +66,22 @@ services:
       retries: 5
 
   qdrant:
-    image: qdrant/qdrant:v1.12.5
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.12.5}
+    pull_policy: if_not_present
     ports:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
   opensearch:
-    image: opensearchproject/opensearch:2.18.0
+    image: ${OPENSEARCH_IMAGE:-opensearchproject/opensearch:2.18.0}
+    pull_policy: if_not_present
     environment:
       discovery.type: single-node
       DISABLE_SECURITY_PLUGIN: "true"
@@ -67,10 +105,12 @@ services:
       start_period: 30s
 
   gateway-api:
+    <<: *node-service
+    profiles: ["core", "full"]
     build:
-      context: .
-      dockerfile: docker/Dockerfile.service
+      <<: *node-build
       args:
+        <<: *docker-build-args
         SERVICE: gateway-api
         PORT: 4000
     ports:
@@ -86,10 +126,12 @@ services:
         condition: service_healthy
 
   metadata-service:
+    <<: *node-service
+    profiles: ["core", "full"]
     build:
-      context: .
-      dockerfile: docker/Dockerfile.service
+      <<: *node-build
       args:
+        <<: *docker-build-args
         SERVICE: metadata-service
         PORT: 4050
     ports:
@@ -103,10 +145,12 @@ services:
         condition: service_healthy
 
   orchestrator:
+    <<: *node-service
+    profiles: ["core", "full"]
     build:
-      context: .
-      dockerfile: docker/Dockerfile.service
+      <<: *node-build
       args:
+        <<: *docker-build-args
         SERVICE: orchestrator
         PORT: 4010
     ports:
@@ -118,10 +162,12 @@ services:
       - report-service
 
   rag-service:
+    <<: *node-service
+    profiles: ["core", "full"]
     build:
-      context: .
-      dockerfile: docker/Dockerfile.service
+      <<: *node-build
       args:
+        <<: *docker-build-args
         SERVICE: rag-service
         PORT: 4020
     ports:
@@ -134,10 +180,12 @@ services:
         condition: service_healthy
 
   report-service:
+    <<: *node-service
+    profiles: ["core", "full"]
     build:
-      context: .
-      dockerfile: docker/Dockerfile.service
+      <<: *node-build
       args:
+        <<: *docker-build-args
         SERVICE: report-service
         PORT: 4030
     ports:
@@ -146,15 +194,37 @@ services:
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
+      RENDER_WORKER_URL: http://render-worker:4060
+      GATEWAY_PUBLIC_URL: http://localhost:4000
     depends_on:
       mysql:
         condition: service_healthy
 
-  eval-service:
+  render-worker:
+    profiles: ["optional", "full"]
+    pull_policy: if_not_present
     build:
       context: .
-      dockerfile: docker/Dockerfile.service
+      dockerfile: docker/Dockerfile.render-worker
       args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        APT_MIRROR: ${APT_MIRROR:-}
+    ports:
+      - "4060:4060"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4060/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  eval-service:
+    <<: *node-service
+    profiles: ["optional", "full"]
+    build:
+      <<: *node-build
+      args:
+        <<: *docker-build-args
         SERVICE: eval-service
         PORT: 4040
     ports:
@@ -164,10 +234,13 @@ services:
       - orchestrator
 
   web-user:
+    profiles: ["frontend", "full"]
+    pull_policy: if_not_present
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
       args:
+        <<: *docker-build-args
         APP: web-user
         PORT: 3001
     ports:
@@ -176,27 +249,35 @@ services:
       NEXT_PUBLIC_GRAPHQL_URL: http://localhost/graphql
 
   web-admin:
+    profiles: ["frontend", "full"]
+    pull_policy: if_not_present
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
       args:
+        <<: *docker-build-args
         APP: web-admin
         PORT: 3002
     ports:
       - "3002:3002"
 
   web-monitor:
+    profiles: ["frontend", "full"]
+    pull_policy: if_not_present
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
       args:
+        <<: *docker-build-args
         APP: web-monitor
         PORT: 3003
     ports:
       - "3003:3003"
 
   nginx:
-    image: nginx:1.27-alpine
+    image: ${NGINX_IMAGE:-nginx:1.27-alpine}
+    profiles: ["frontend", "full"]
+    pull_policy: if_not_present
     ports:
       - "80:80"
     volumes:

@@ -5,7 +5,11 @@
     "sqlBody": "SELECT business_id, amount, in_ex_type, settlement_type_code, gmt_create\nFROM fund_flow\nWHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)\nORDER BY gmt_create DESC"
   },
   {
-    "name": "业务员派费收入",
+    "name": "近7天资金流水日汇总",
+    "scenarioDescription": "近7天 fund_flow 按日汇总笔数与金额，便于环比同比分析",
+    "sqlBody": "SELECT DATE(gmt_create) AS dt, COUNT(*) AS cnt, SUM(amount) AS total_amount\nFROM fund_flow\nWHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)\nGROUP BY DATE(gmt_create)\nORDER BY dt DESC"
+  },
+  {
     "scenarioDescription": "查询指定业务员的派费（COURIER_DELIVERY_FEE）结算订单金额汇总；order_type 仅属 hst_order",
     "sqlBody": "SELECT c.staff_code, c.name, SUM(o.order_amount) AS delivery_fee_income\nFROM hst_order o\nJOIN nl_courier c ON o.object_code = c.staff_code\nWHERE o.order_type = 'COURIER_DELIVERY_FEE'\n  AND c.staff_code = {{staff_code}}\nGROUP BY c.staff_code, c.name"
   }

@@ -47,6 +47,21 @@ export type WorkflowGraphState = {
   generatedContent?: string;
   chartConfig?: Record<string, unknown>;
   executionResult?: Record<string, unknown>;
+  outputFormat?: 'inline' | 'web' | 'word';
+  reportAnalysis?: {
+    title: string;
+    summary: string;
+    insights: string[];
+    dataSources: string[];
+    caveats?: string[];
+    recommendedCharts?: Array<{
+      chartType: 'line' | 'bar' | 'table' | 'pie';
+      chartConfig: Record<string, string>;
+    }>;
+    sections?: { title: string; body: string; chartIndex?: number }[];
+  };
+  reportSpec?: import('@hermes/contracts').ReportSpec;
+  reportArtifact?: import('@hermes/contracts').ReportArtifact;
   lastError?: string;
   summaryText?: string;
 
@@ -75,6 +90,7 @@ export function createInitialState(input: {
   checkpointId: string;
   traceId?: string;
   history?: WorkflowGraphState['history'];
+  outputFormat?: 'inline' | 'web' | 'word';
 }): WorkflowGraphState {
   const maxRagLoopsEnv = Number(process.env.WORKFLOW_MAX_RAG_LOOPS);
   const maxRagLoops = Number.isFinite(maxRagLoopsEnv) && maxRagLoopsEnv > 0
@@ -99,6 +115,7 @@ export function createInitialState(input: {
     templateExamples: [],
     templateMatches: [],
     ragScore: 0,
+    outputFormat: input.outputFormat ?? 'inline',
     currentPhase: 'understanding',
     currentNode: 'LoadContext',
     status: 'running',

@@ -30,6 +30,7 @@ function buildSystemPrompt(rolePrompt?: RolePromptInput): string {
     '字段约束：WHERE/SELECT/ORDER BY/GROUP BY 中的列名必须出现在 Schema JSON 中对应表的字段列表内；禁止把 A 表的字段写到 B 表（如 order_type 仅属 hst_order，不可用于 hwt_trade_info）；禁止臆造上下文中不存在的列名。',
     '类型约束：参考 Schema 中每列的 type。数值型（int/tinyint/decimal/bigint 等）禁止用字符串字面量比较；日期/时间型（date/datetime/timestamp）用于时间范围过滤；状态/枚举的业务含义以业务知识为准，勿用中文标签替代物理值。',
     '时间过滤：若用户指定时间范围，必须使用 Schema 中 type 为 date/datetime/timestamp 的字段（如 gmt_create、finish_time）；若上下文无合适时间字段，在 explanation 中说明而非编造列名。',
+    '环比/同比/趋势：优先 GROUP BY DATE(时间字段) 做日/周汇总，再用自连接或子查询算环比；避免 ROWS BETWEEN PRECEDING、LAG 等复杂窗口函数，除非用户明确要求行级窗口计算。',
     '多表场景：优先参考业务知识中的 JOIN 路径；无明确路径时在 explanation 说明假设。',
     '输出语言：面向用户的 explanation 默认使用简体中文；SQL、表名、字段名、枚举值保持物理名不翻译。仅当用户明确要求其他语言时使用对应语言。',
   ];
@@ -235,6 +236,59 @@ export function createOpenAiStyleLlmProvider(
       } catch (err) {
         console.warn('[llm] generateReport fallback to mock:', err instanceof Error ? err.message : err);
         return fallback.generateReport(input);
+      }
+    },
+
+    async analyzeReportData(input) {
+      try {
+        const formatHint =
+          input.outputFormat === 'word'
+            ? '输出 Word 文档适用的章节结构 sections。'
+            : input.outputFormat === 'web'
+              ? '输出网页报告适用的章节结构 sections。'
+              : '';
+        const messages = [
+          {
+            role: 'system' as const,
+            content:
+              `你是数据分析报告助手。仅返回 JSON：{"title":"string","summary":"string","insights":["string"],"dataSources":["string"],"caveats":["string"],"recommendedCharts":[{"chartType":"line"|"bar"|"table"|"pie","chartConfig":{"xField":"","yField":""}}],"sections":[{"title":"","body":"","chartIndex":0}]}. ${formatHint}`,
+          },
+          {
+            role: 'user' as const,
+            content: [
+              `用户问题: ${input.query}`,
+              `SQL: ${input.sql ?? ''}`,
+              `行数: ${input.rowCount}`,
+              `数据样例:\n${JSON.stringify(input.rows.slice(0, 10))}`,
+              `当前图表: ${input.chartType ?? 'table'} ${JSON.stringify(input.chartConfig ?? {})}`,
+            ].join('\n\n'),
+          },
+        ];
+        const content = await completeJson(client, messages);
+        const parsed = extractJson(content) as {
+          title?: string;
+          summary?: string;
+          insights?: string[];
+          dataSources?: string[];
+          caveats?: string[];
+          recommendedCharts?: Array<{
+            chartType: 'line' | 'bar' | 'table' | 'pie';
+            chartConfig: Record<string, string>;
+          }>;
+          sections?: { title: string; body: string; chartIndex?: number }[];
+        };
+        return {
+          title: parsed.title ?? input.query.slice(0, 48),
+          summary: parsed.summary ?? `共 ${input.rowCount} 行数据。`,
+          insights: parsed.insights ?? [],
+          dataSources: parsed.dataSources ?? [],
+          caveats: parsed.caveats,
+          recommendedCharts: parsed.recommendedCharts,
+          sections: parsed.sections,
+        };
+      } catch (err) {
+        console.warn('[llm] analyzeReportData fallback to mock:', err instanceof Error ? err.message : err);
+        return fallback.analyzeReportData(input);
       }
     },
   };
