@@ -21,3 +21,4 @@ docker/data/
 .cache/
 tmp/
 .hermes/
+.cursor/agent/chat/
