@@ -18,4 +18,9 @@ export {
   formatStructuredSchema,
   findColumnOwners,
   formatUnknownColumnFeedback,
+  getTableColumnNames,
+  parseFieldDocument,
+  schemaHasColumn,
+  type SchemaColumnMeta,
+  type StructuredSchema,
 } from './schema-context.js';

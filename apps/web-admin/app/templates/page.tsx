@@ -23,6 +23,7 @@ import {
   type ReportTemplateItem,
   type SqlTemplateItem,
 } from '../../lib/api';
+import { decodePrefill } from '../../lib/prefill';
 
 type TabKey = 'sql' | 'report';
 
@@ -31,24 +32,6 @@ const STATUS_LABELS: Record<string, string> = {
   active: '启用',
   archived: '停用',
 };
-
-type PrefillPayload = {
-  name?: string;
-  scenarioDescription?: string;
-  sqlBody?: string;
-  chartType?: 'line' | 'bar' | 'table';
-  chartConfig?: { xField?: string; yField?: string };
-  sourceFeedbackId?: string;
-};
-
-function decodePrefill(raw: string | null): PrefillPayload | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(decodeURIComponent(escape(atob(raw)))) as PrefillPayload;
-  } catch {
-    return null;
-  }
-}
 
 function TemplatesPageContent() {
   const searchParams = useSearchParams();
@@ -62,6 +45,7 @@ function TemplatesPageContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<SqlTemplateItem | ReportTemplateItem | null>(null);
   const [sourceFeedbackId, setSourceFeedbackId] = useState<string | undefined>();
+  const [sourceCandidateId, setSourceCandidateId] = useState<string | undefined>();
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -99,12 +83,14 @@ function TemplatesPageContent() {
       chartConfig: prefill.chartConfig ?? { xField: '', yField: '' },
     });
     setSourceFeedbackId(prefill.sourceFeedbackId);
+    setSourceCandidateId(prefill.sourceCandidateId);
     setDrawerOpen(true);
   }, [prefill, initialTab, form]);
 
   const openCreate = () => {
     setEditing(null);
     setSourceFeedbackId(undefined);
+    setSourceCandidateId(undefined);
     form.resetFields();
     form.setFieldsValue({
       status: 'draft',
@@ -118,6 +104,7 @@ function TemplatesPageContent() {
   const openEdit = (row: SqlTemplateItem | ReportTemplateItem) => {
     setEditing(row);
     setSourceFeedbackId(undefined);
+    setSourceCandidateId(undefined);
     form.setFieldsValue(row);
     setDrawerOpen(true);
   };
@@ -130,6 +117,24 @@ function TemplatesPageContent() {
   const onSave = async () => {
     const values = await form.validateFields();
     try {
+      if (sourceCandidateId) {
+        await closedLoopApi.approveCandidate(sourceCandidateId, {
+          name: values.name,
+          scenarioDescription: values.scenarioDescription,
+          sqlBody: values.sqlBody,
+          inLibrary: values.inLibrary,
+          status: values.status,
+          chartType: tab === 'report' ? values.chartType : undefined,
+          chartConfig: tab === 'report' ? values.chartConfig : undefined,
+        });
+        message.success(values.inLibrary ? '已编辑并入库' : '已编辑并创建 draft 模板');
+        setDrawerOpen(false);
+        setSourceCandidateId(undefined);
+        await load();
+        await rebuildTemplatesIndex();
+        return;
+      }
+
       let templateId: string | undefined;
       if (tab === 'sql') {
         if (editing) {
@@ -152,6 +157,7 @@ function TemplatesPageContent() {
       message.success('已保存');
       setDrawerOpen(false);
       setSourceFeedbackId(undefined);
+      setSourceCandidateId(undefined);
       await load();
       await rebuildTemplatesIndex();
     } catch (e) {
@@ -249,9 +255,21 @@ function TemplatesPageContent() {
       />
 
       <Drawer
-        title={editing ? '编辑模板' : '新建模板'}
+        title={
+          sourceCandidateId
+            ? '编辑候选并入库'
+            : sourceFeedbackId
+              ? '完善反馈模板'
+              : editing
+                ? '编辑模板'
+                : '新建模板'
+        }
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSourceFeedbackId(undefined);
+          setSourceCandidateId(undefined);
+        }}
         width={640}
         extra={<Button type="primary" onClick={() => void onSave()}>保存</Button>}
       >

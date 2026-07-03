@@ -8,7 +8,12 @@ import {
 const fundFlowSchema = [
   {
     id: '1',
-    content: 'fund_flow 跨系统资金流水 business_id amount gmt_create datetime 创建时间',
+    content: 'fund_flow 跨系统资金流水 business_id 业务编号 varchar',
+    score: 0.9,
+  },
+  {
+    id: '2',
+    content: 'fund_flow 跨系统资金流水 gmt_create 创建时间 datetime',
     score: 0.9,
   },
 ];
@@ -16,12 +21,22 @@ const fundFlowSchema = [
 const crossTableSchema = [
   {
     id: '1',
-    content: 'hst_order 结算主订单 order_type 订单类型 order_amount',
+    content: 'hst_order 结算主订单 order_type 订单类型 varchar',
     score: 0.9,
   },
   {
     id: '2',
-    content: 'hwt_trade_info 钱包交易 amount trade_type finish_time',
+    content: 'hst_order 结算主订单 order_amount 订单金额 decimal',
+    score: 0.9,
+  },
+  {
+    id: '3',
+    content: 'hwt_trade_info 钱包交易 amount 交易金额 decimal',
+    score: 0.8,
+  },
+  {
+    id: '4',
+    content: 'hwt_trade_info 钱包交易 trade_type 交易类型 varchar',
     score: 0.8,
   },
 ];
@@ -29,9 +44,9 @@ const crossTableSchema = [
 describe('buildStructuredSchema', () => {
   it('groups fields by table', () => {
     const schema = buildStructuredSchema(crossTableSchema);
-    expect(schema.hst_order).toContain('order_type');
-    expect(schema.hwt_trade_info).toContain('amount');
-    expect(schema.hwt_trade_info).not.toContain('order_type');
+    expect(schema.hst_order?.order_type).toBeDefined();
+    expect(schema.hwt_trade_info?.amount).toBeDefined();
+    expect(schema.hwt_trade_info?.order_type).toBeUndefined();
   });
 });
 
@@ -50,6 +65,25 @@ describe('checkColumnGrounding', () => {
       sql: 'SELECT business_id, gmt_create FROM fund_flow WHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)',
       schemaContext: fundFlowSchema,
     });
+    expect(result.ok).toBe(true);
+  });
+
+  it('should not treat INTERVAL WEEK unit as unknown column', () => {
+    const keeperSchema = [
+      {
+        id: '1',
+        content: 'keeper_task_info 数据核对任务 status 状态 tinyint',
+        score: 0.9,
+      },
+      {
+        id: '2',
+        content: 'keeper_task_info 数据核对任务 gmt_create 创建时间 datetime',
+        score: 0.9,
+      },
+    ];
+    const sql =
+      "SELECT COUNT(*) AS total_tasks FROM keeper_task_info WHERE status = '数据核对' AND gmt_create >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)";
+    const result = checkColumnGrounding({ sql, schemaContext: keeperSchema });
     expect(result.ok).toBe(true);
   });
 

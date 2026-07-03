@@ -14,6 +14,7 @@ export type CreateCandidateInput = {
   chartType?: 'line' | 'bar' | 'table';
   chartConfig?: unknown;
   ragScore?: number;
+  schemaContextCount?: number;
 };
 
 export type CreateFeedbackInput = {
@@ -28,8 +29,18 @@ export type CreateFeedbackInput = {
   feedbackReason: string;
 };
 
-const DEFAULT_CANDIDATE_RAG_THRESHOLD = 0.7;
 const UPVOTE_PRIORITY_BOOST = 10;
+
+/** 与工作流 DEFAULT_WORKFLOW_LIMITS.minRagScore 对齐 */
+const WORKFLOW_MIN_RAG_SCORE = 0.35;
+const WORKFLOW_RELAXED_RAG_SCORE = 0.25;
+
+function isCandidateRagScoreAcceptable(ragScore: number, schemaContextCount = 0): boolean {
+  return (
+    ragScore >= WORKFLOW_MIN_RAG_SCORE
+    || (ragScore >= WORKFLOW_RELAXED_RAG_SCORE && schemaContextCount > 0)
+  );
+}
 
 export class ClosedLoopRepository {
   private readonly chatKnex: Knex;
@@ -103,8 +114,15 @@ export class ClosedLoopService {
     const existing = await this.repo.findCandidateByMessageId(input.sourceMessageId);
     if (existing) return existing;
 
-    const threshold = DEFAULT_CANDIDATE_RAG_THRESHOLD;
-    if ((input.ragScore ?? 0) < threshold) return null;
+    if (!isCandidateRagScoreAcceptable(input.ragScore ?? 0, input.schemaContextCount ?? 0)) {
+      this.logger.info('closed_loop.candidate.skipped', {
+        traceId,
+        reason: 'rag_score_below_threshold',
+        ragScore: input.ragScore,
+        schemaContextCount: input.schemaContextCount ?? 0,
+      });
+      return null;
+    }
 
     const row = await this.repo.insertCandidate({
       id: newId(),
@@ -148,20 +166,32 @@ export class ClosedLoopService {
 
   async approveCandidate(
     id: string,
-    input: { name?: string; inLibrary?: boolean; createdBy?: string },
+    input: {
+      name?: string;
+      scenarioDescription?: string;
+      sqlBody?: string;
+      chartType?: 'line' | 'bar' | 'table';
+      chartConfig?: unknown;
+      status?: 'draft' | 'active' | 'archived';
+      inLibrary?: boolean;
+      createdBy?: string;
+    },
     traceId?: string,
   ) {
     const candidate = await this.repo.findCandidate(id);
     if (!candidate || candidate.status !== 'pending') return null;
 
+    const inLibrary = input.inLibrary ?? false;
+    const status = input.status ?? (inLibrary ? 'active' : 'draft');
+
     if (candidate.mode === 'sql') {
       const tpl = await this.templateRepos.template.insertSql({
         id: newId(),
         name: input.name ?? candidate.userQuery.slice(0, 64),
-        scenarioDescription: candidate.scenarioDescription,
-        sqlBody: candidate.sqlBody,
-        status: input.inLibrary ? 'active' : 'draft',
-        inLibrary: input.inLibrary ?? false,
+        scenarioDescription: input.scenarioDescription ?? candidate.scenarioDescription,
+        sqlBody: input.sqlBody ?? candidate.sqlBody,
+        status,
+        inLibrary,
         usageCount: 0,
         score: candidate.ragScore ?? null,
         createdBy: input.createdBy,
@@ -174,16 +204,16 @@ export class ClosedLoopService {
       return { candidate: updated, template: tpl };
     }
 
-    const chartType = candidate.chartType ?? 'table';
+    const chartType = input.chartType ?? candidate.chartType ?? 'table';
     const tpl = await this.templateRepos.template.insertReport({
       id: newId(),
       name: input.name ?? candidate.userQuery.slice(0, 64),
-      scenarioDescription: candidate.scenarioDescription,
-      sqlBody: candidate.sqlBody,
+      scenarioDescription: input.scenarioDescription ?? candidate.scenarioDescription,
+      sqlBody: input.sqlBody ?? candidate.sqlBody,
       chartType,
-      chartConfig: candidate.chartConfig ?? { xField: '', yField: '' },
-      status: input.inLibrary ? 'active' : 'draft',
-      inLibrary: input.inLibrary ?? false,
+      chartConfig: input.chartConfig ?? candidate.chartConfig ?? { xField: '', yField: '' },
+      status,
+      inLibrary,
       usageCount: 0,
       score: candidate.ragScore ?? null,
       createdBy: input.createdBy,

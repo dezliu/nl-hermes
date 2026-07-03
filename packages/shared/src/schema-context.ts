@@ -1,42 +1,89 @@
 import type { RetrieveResult } from '@hermes/contracts';
 
-/** Parse RAG metadata docs (table name first token, field name second significant token) into table→columns map. */
-export function buildStructuredSchema(schemaContext: RetrieveResult[]): Record<string, string[]> {
-  const tableColumns = new Map<string, Set<string>>();
+export type SchemaColumnMeta = { type?: string };
+export type StructuredSchema = Record<string, Record<string, SchemaColumnMeta>>;
+
+/** MySQL information_schema.COLUMNS DATA_TYPE values (lowercase). */
+const MYSQL_DATA_TYPES = new Set([
+  'tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint',
+  'decimal', 'numeric', 'float', 'double', 'real', 'bit',
+  'char', 'varchar', 'binary', 'varbinary',
+  'tinyblob', 'blob', 'mediumblob', 'longblob',
+  'tinytext', 'text', 'mediumtext', 'longtext',
+  'enum', 'set', 'date', 'time', 'datetime', 'timestamp', 'year', 'json',
+]);
+
+function extractDataTypeFromTokens(tokens: string[], startIndex: number): string | undefined {
+  const limit = Math.min(tokens.length, startIndex + 5);
+  for (let i = startIndex; i < limit; i++) {
+    const token = tokens[i]!;
+    if (MYSQL_DATA_TYPES.has(token)) return token;
+  }
+  return undefined;
+}
+
+/**
+ * Parse one RAG field document. Content order matches index-pipeline:
+ * tablePhysicalName, tableBusinessName, physicalName, businessName, description, dataType, synonyms.
+ */
+export function parseFieldDocument(content: string): { table: string; field: string; type?: string } | null {
+  const tokens = content.toLowerCase().match(/[a-z_][a-z0-9_]*/g) ?? [];
+  if (tokens.length < 2) return null;
+
+  const table = tokens[0]!;
+  const field = tokens[1]!;
+  if (table === field) return null;
+
+  return { table, field, type: extractDataTypeFromTokens(tokens, 2) };
+}
+
+/** Parse RAG metadata docs into table → column → { type } map. */
+export function buildStructuredSchema(schemaContext: RetrieveResult[]): StructuredSchema {
+  const result: StructuredSchema = {};
 
   for (const item of schemaContext) {
-    const tokens = item.content.toLowerCase().match(/[a-z_][a-z0-9_]*/g) ?? [];
-    if (tokens.length < 2) continue;
+    const parsed = parseFieldDocument(item.content);
+    if (!parsed) continue;
 
-    const table = tokens[0]!;
-    const field = tokens[1]!;
-    if (table === field) continue;
-
-    if (!tableColumns.has(table)) tableColumns.set(table, new Set());
-    tableColumns.get(table)!.add(field);
+    if (!result[parsed.table]) result[parsed.table] = {};
+    const existing = result[parsed.table]![parsed.field];
+    result[parsed.table]![parsed.field] = {
+      type: parsed.type ?? existing?.type,
+    };
   }
 
-  const result: Record<string, string[]> = {};
-  for (const [table, cols] of tableColumns) {
-    result[table] = [...cols].sort();
-  }
   return result;
+}
+
+export function getTableColumnNames(schema: StructuredSchema, table: string): string[] {
+  return Object.keys(schema[table] ?? {}).sort();
+}
+
+export function schemaHasColumn(schema: StructuredSchema, table: string, column: string): boolean {
+  return column in (schema[table] ?? {});
 }
 
 export function formatStructuredSchema(schemaContext: RetrieveResult[]): string {
   const schema = buildStructuredSchema(schemaContext);
   if (Object.keys(schema).length === 0) return '（无）';
-  return JSON.stringify(schema, null, 2);
+
+  const sorted: StructuredSchema = {};
+  for (const table of Object.keys(schema).sort()) {
+    sorted[table] = {};
+    for (const column of Object.keys(schema[table]!).sort()) {
+      const meta = schema[table]![column]!;
+      sorted[table]![column] = meta.type ? { type: meta.type } : {};
+    }
+  }
+
+  return JSON.stringify(sorted, null, 2);
 }
 
 /** Find which table(s) own a column according to structured schema. */
-export function findColumnOwners(
-  schema: Record<string, string[]>,
-  column: string,
-): string[] {
+export function findColumnOwners(schema: StructuredSchema, column: string): string[] {
   const col = column.toLowerCase();
   return Object.entries(schema)
-    .filter(([, cols]) => cols.includes(col))
+    .filter(([, cols]) => col in cols)
     .map(([table]) => table);
 }
 

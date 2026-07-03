@@ -9,6 +9,7 @@ export type CreateCandidatePayload = {
   chartType?: 'line' | 'bar' | 'table';
   chartConfig?: unknown;
   ragScore?: number;
+  schemaContextCount?: number;
 };
 
 export type CreateFeedbackPayload = {

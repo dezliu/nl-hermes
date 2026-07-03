@@ -245,7 +245,18 @@ export const closedLoopApi = {
       METADATA_URL,
       `/v1/template-candidates${status ? `?status=${status}` : ''}`,
     ),
-  approveCandidate: (id: string, body?: { name?: string; inLibrary?: boolean }) =>
+  approveCandidate: (
+    id: string,
+    body?: {
+      name?: string;
+      scenarioDescription?: string;
+      sqlBody?: string;
+      chartType?: 'line' | 'bar' | 'table';
+      chartConfig?: Record<string, unknown>;
+      status?: 'draft' | 'active' | 'archived';
+      inLibrary?: boolean;
+    },
+  ) =>
     request<{ candidate: TemplateCandidateItem; template: unknown }>(
       METADATA_URL,
       `/v1/template-candidates/${id}/approve`,

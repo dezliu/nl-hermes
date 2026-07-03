@@ -23,6 +23,7 @@ import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { GenerationLock, InterruptRegistry, RedisLike } from '../lib/redis.js';
 import type { TemplateApplyService } from './template-apply-service.js';
 import type { MetadataClosedLoopClient } from '../lib/metadata-closed-loop-client.js';
+import { shouldCreateTemplateCandidate } from '../lib/candidate-eligibility.js';
 
 export type ChatServiceOptions = {
   logger: Logger;
@@ -213,7 +214,8 @@ export class ChatService {
         assistantStatus === 'completed' &&
         finalState.generatedSql &&
         !finalState.refuseReason &&
-        this.opts.closedLoop
+        this.opts.closedLoop &&
+        shouldCreateTemplateCandidate(finalState)
       ) {
         void this.opts.closedLoop.createCandidate({
           sourceMessageId: messageId,
@@ -227,6 +229,7 @@ export class ChatService {
               : undefined,
           chartConfig: finalState.chartConfig,
           ragScore: finalState.ragScore,
+          schemaContextCount: finalState.schemaContext.length,
         });
       }
 

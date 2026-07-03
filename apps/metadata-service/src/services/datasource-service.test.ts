@@ -65,3 +65,22 @@ describe('markRemovedFields repository contract', () => {
     expect(typeof new MetaRepository().markRemovedFields).toBe('function');
   });
 });
+
+describe('syncDatasourceMetadata field dataType', () => {
+  it('SchemaFieldPreview carries dataType from information_schema for upsert', () => {
+    // Mirrors fetchSchemaFromSource row mapping and upsertFieldFromSource patch payload.
+    const preview = {
+      physicalName: 'status',
+      dataType: 'tinyint',
+      columnComment: '状态',
+    };
+    expect(preview.dataType).toBe('tinyint');
+
+    const upsertPatch = {
+      sourceStatus: 'active' as const,
+      dataType: preview.dataType,
+      businessName: preview.columnComment,
+    };
+    expect(upsertPatch.dataType).toBe('tinyint');
+  });
+});

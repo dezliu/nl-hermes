@@ -3,18 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { ADMIN_NAV } from '../lib/admin-nav';
 
-const NAV = [
-  { href: '/datasources', label: '数据源管理' },
-  { href: '/metadata', label: '元数据管理' },
-  { href: '/business-knowledge', label: '业务知识' },
-  { href: '/templates', label: '模板管理' },
-  { href: '/generation-closed-loop', label: '生成闭环' },
-  { href: '/prompts', label: '系统 Prompt' },
-  { href: '/search-test', label: '向量检索测试' },
-  { href: '/eval', label: '离线评估' },
-  { href: '/alerts', label: '告警信息' },
-];
+const NAV = ADMIN_NAV.map(({ href, label }) => ({ href, label }));
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();

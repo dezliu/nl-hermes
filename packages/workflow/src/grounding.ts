@@ -1,13 +1,13 @@
 import type { RetrieveResult } from '@hermes/contracts';
-import { buildStructuredSchema } from '@hermes/shared';
+import { buildStructuredSchema, schemaHasColumn } from '@hermes/shared';
 
 const SQL_KEYWORDS = new Set([
   'select', 'from', 'where', 'and', 'or', 'not', 'in', 'is', 'null', 'as', 'on', 'join',
   'left', 'right', 'inner', 'outer', 'group', 'by', 'order', 'having', 'limit', 'offset',
   'distinct', 'case', 'when', 'then', 'else', 'end', 'between', 'like', 'asc', 'desc',
   'union', 'all', 'exists', 'true', 'false', 'with', 'over', 'partition', 'row', 'rows',
-  'date', 'datetime', 'timestamp', 'interval', 'day', 'month', 'year', 'hour', 'minute',
-  'second', 'curdate', 'now', 'date_sub', 'date_add', 'count', 'sum', 'avg', 'min', 'max',
+  'date', 'datetime', 'timestamp', 'interval', 'day', 'week', 'month', 'year', 'hour', 'minute',
+  'second', 'quarter', 'microsecond', 'curdate', 'now', 'date_sub', 'date_add', 'count', 'sum', 'avg', 'min', 'max',
   'cast', 'coalesce', 'ifnull', 'if', 'substring', 'trim', 'upper', 'lower',
 ]);
 
@@ -114,7 +114,7 @@ export function checkColumnGrounding(input: {
     const { tableOrAlias, column } = ref;
     if (SQL_KEYWORDS.has(column) || /^\d/.test(column)) continue;
 
-    const owners = schemaTables.filter((t) => schema[t]!.includes(column));
+    const owners = schemaTables.filter((t) => schemaHasColumn(schema, t, column));
     if (owners.length === 0) {
       if (!collectKnownTokens(input.schemaContext).has(column)) {
         unknown.push(column);
@@ -124,7 +124,7 @@ export function checkColumnGrounding(input: {
 
     if (tableOrAlias) {
       const resolved = resolveTable(tableOrAlias, aliasMap);
-      if (resolved && schema[resolved] && !schema[resolved]!.includes(column)) {
+      if (resolved && schema[resolved] && !schemaHasColumn(schema, resolved, column)) {
         misassigned.push(`${resolved}.${column}`);
       } else if (resolved && !schema[resolved] && owners.length > 0 && !owners.includes(resolved)) {
         misassigned.push(`${tableOrAlias}.${column}`);

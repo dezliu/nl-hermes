@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Modal, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Button, Modal, Space, Table, Tabs, Tag, message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '../../components/AdminLayout';
 import {
@@ -10,11 +10,20 @@ import {
   type GenerationFeedbackItem,
   type TemplateCandidateItem,
 } from '../../lib/api';
+import { encodePrefill } from '../../lib/prefill';
 
-const { Paragraph } = Typography;
-
-function encodePrefill(payload: Record<string, unknown>) {
-  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+function buildCandidatePrefill(row: TemplateCandidateItem) {
+  return encodePrefill({
+    name: row.userQuery.slice(0, 64),
+    scenarioDescription: row.scenarioDescription,
+    sqlBody: row.sqlBody,
+    chartType: row.mode === 'report' ? (row.chartType ?? 'table') : undefined,
+    chartConfig:
+      row.mode === 'report' && row.chartConfig && typeof row.chartConfig === 'object'
+        ? (row.chartConfig as { xField?: string; yField?: string })
+        : { xField: '', yField: '' },
+    sourceCandidateId: row.id,
+  });
 }
 
 export default function GenerationClosedLoopPage() {
@@ -51,7 +60,7 @@ export default function GenerationClosedLoopPage() {
         name: row.userQuery.slice(0, 64),
         inLibrary,
       });
-      message.success(inLibrary ? '已入库为 draft 模板' : '已创建 draft 模板');
+      message.success(inLibrary ? '已收入模板库' : '已创建 draft 模板');
       await ragApi.rebuildIndex('templates');
       await load();
     } catch (err) {
@@ -67,6 +76,10 @@ export default function GenerationClosedLoopPage() {
     } catch {
       message.error('操作失败');
     }
+  };
+
+  const handleProcessCandidate = (row: TemplateCandidateItem) => {
+    router.push(`/templates?tab=${row.mode}&prefill=${buildCandidatePrefill(row)}`);
   };
 
   const handleProcessFeedback = (row: GenerationFeedbackItem) => {
@@ -146,14 +159,17 @@ export default function GenerationClosedLoopPage() {
                   },
                   {
                     title: '操作',
-                    width: 220,
+                    width: 300,
                     render: (_: unknown, row: TemplateCandidateItem) => (
-                      <Space>
+                      <Space wrap>
+                        <Button type="link" size="small" onClick={() => handleProcessCandidate(row)}>
+                          编辑后入库
+                        </Button>
                         <Button type="link" size="small" onClick={() => void handleApprove(row, false)}>
                           创建 draft
                         </Button>
                         <Button type="link" size="small" onClick={() => void handleApprove(row, true)}>
-                          入库
+                          一键入库
                         </Button>
                         <Button type="link" size="small" danger onClick={() => void handleReject(row.id)}>
                           拒绝
@@ -223,9 +239,7 @@ export default function GenerationClosedLoopPage() {
         footer={null}
         width={720}
       >
-        <Paragraph>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{sqlPreview}</pre>
-        </Paragraph>
+        <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0 }}>{sqlPreview}</pre>
       </Modal>
     </AdminLayout>
   );
