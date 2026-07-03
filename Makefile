@@ -1,4 +1,4 @@
-.PHONY: help up up-build stack-core pull-images infra infra-cn down build build-deps migrate seed seed-if-needed dev test lint logs clean install mysql-up health mirror-daemon
+.PHONY: help up up-build stack-core pull-images infra infra-cn down build build-deps migrate seed seed-if-needed dev test lint logs clean install mysql-up health mirror-daemon render-worker
 
 # 国内镜像：.env 中 USE_CN_MIRROR=1 时自动加载 docker/mirrors.cn.env
 -include .env
@@ -18,7 +18,7 @@ install: ## 安装依赖
 pull-images: ## 预拉取基础镜像（首次部署前执行一次）
 	$(COMPOSE_DEV) pull
 
-infra: ## 仅启动基础设施 (MySQL/Redis/Qdrant/OpenSearch) — 最快，配合 make dev
+infra: ## 仅启动基础设施 (MySQL/Redis/Qdrant/OpenSearch/render-worker) — 配合 make dev
 	@test -f .env || cp .env.example .env
 	$(COMPOSE_DEV) up -d --wait
 
@@ -79,6 +79,8 @@ dev: infra build-deps seed-if-needed ## 本地开发：infra + 编译依赖 + mi
 	MYSQL_HOST=localhost MYSQL_PORT=3307 pnpm dev
 
 health: ## 检查各服务健康状态（需 make dev 运行中）
+	@echo "== render-worker :4060 =="
+	@curl -sf http://localhost:4060/health | jq . || echo "  ✗ 未响应（Word 报表需此服务：make render-worker）"
 	@echo "== metadata-service :4050 =="
 	@curl -sf http://localhost:4050/health | jq . || echo "  ✗ 未响应"
 	@echo "== rag-service :4020 =="
@@ -116,3 +118,7 @@ clean: ## 清理构建产物
 	pnpm clean
 	rm -rf .hermes/settle-seed.done
 	$(COMPOSE) --profile full down -v 2>/dev/null || true
+
+render-worker: ## 仅启动 Word/图表渲染服务（端口 4060）
+	$(COMPOSE_DEV) up -d --build --wait render-worker
+	@echo "render-worker: http://localhost:4060/health"

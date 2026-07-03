@@ -40,6 +40,7 @@ export function ReportViewer({ reportSpec, reportArtifact }: ReportViewerProps) 
 
   const reportId = reportSpec?.id ?? reportArtifact?.reportId;
   const format = reportSpec?.outputFormat ?? reportArtifact?.format;
+  const artifactReady = reportArtifact?.status !== 'failed';
 
   const handlePreview = () => {
     if (!reportId) return;
@@ -47,7 +48,10 @@ export function ReportViewer({ reportSpec, reportArtifact }: ReportViewerProps) 
   };
 
   const handleDownload = () => {
-    if (!reportId) return;
+    if (!reportId || !artifactReady) {
+      message.error(reportArtifact?.errorMessage ?? 'Word 文档尚未就绪');
+      return;
+    }
     window.open(`${GATEWAY_BASE}/api/reports/${reportId}/download`, '_blank');
   };
 
@@ -103,6 +107,12 @@ export function ReportViewer({ reportSpec, reportArtifact }: ReportViewerProps) 
         <div ref={chartRef} style={{ width: '100%', height: 320, marginBottom: 12 }} />
       )}
 
+      {reportArtifact?.status === 'failed' && reportArtifact.errorMessage && (
+        <Text type="danger" style={{ display: 'block', marginBottom: 8 }}>
+          {reportArtifact.errorMessage}
+        </Text>
+      )}
+
       <Space wrap style={{ marginTop: 8 }}>
         {(format === 'web' || format === 'inline') && (
           <Button size="small" onClick={handlePreview}>
@@ -110,7 +120,7 @@ export function ReportViewer({ reportSpec, reportArtifact }: ReportViewerProps) 
           </Button>
         )}
         {format === 'word' && (
-          <Button size="small" type="primary" onClick={handleDownload}>
+          <Button size="small" type="primary" onClick={handleDownload} disabled={!artifactReady}>
             下载 Word
           </Button>
         )}

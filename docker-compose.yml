@@ -199,9 +199,11 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      render-worker:
+        condition: service_healthy
 
   render-worker:
-    profiles: ["optional", "full"]
+    profiles: ["core", "optional", "full"]
     pull_policy: if_not_present
     build:
       context: .

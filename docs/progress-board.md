@@ -6,27 +6,24 @@
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| fund_flow.gmt_create 校验失败修复 | ✅ 已完成 | schema 补全 + 别名识别 + 模板注入 |
+| Word 报表 render-worker | ✅ 已完成 | Python docx + matplotlib 图表嵌入 |
 
 ## 本次交付（2026-07-03）
 
 ### 已完成
 
-- [x] **Grounding**：识别 `SELECT ... AS alias`，`ORDER BY dt` 不再误报
-- [x] **RAG 后补全**：对已命中表从 query-library 补全全部字段
-- [x] **时间意图**：「近7天/环比/同比」时提高 metadata topK=12，并优先补 datetime 字段
-- [x] **校验失败补全**：未知列时从 metadata 定向补全 schema 后重检
-- [x] **模板匹配注入**：`templateMatches` 的 `sqlBody` 作为 few-shot 传给 LLM
-- [x] **TemplateMatchResult** 增加 `sqlBody` 字段
+- [x] **Word 真 DOCX 生成**：移除纯文本 fallback，必须走 Python render-worker
+- [x] **图表嵌入**：matplotlib 生成 PNG 写入 Word（line/bar/pie）
+- [x] **中文字体**：Docker 镜像安装 `fonts-noto-cjk`
+- [x] **dev 栈**：`docker-compose.dev.yml` + `make render-worker` / `make infra` 含 4060
+- [x] **前端**：渲染失败时禁用下载并展示错误
 
 ### 涉及文件
 
-- `packages/workflow/src/schema-enrichment.ts`（新增）
-- `packages/workflow/src/grounding.ts`
-- `packages/workflow/src/nodes.ts`
-- `packages/contracts/src/index.ts`
-- `apps/report-service/src/services/template-matcher.ts`
-- `packages/llm-tools/src/clients.ts`
+- `apps/render-worker/main.py`
+- `apps/report-service/src/services/artifact-renderer.ts`
+- `apps/web-user/components/ReportViewer.tsx`
+- `docker-compose.dev.yml`, `docker-compose.yml`, `Makefile`, `.env.example`
 
 ## 待验证
 

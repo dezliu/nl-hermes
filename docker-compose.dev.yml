@@ -75,6 +75,24 @@ services:
       retries: 10
       start_period: 30s
 
+  render-worker:
+    pull_policy: if_not_present
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.render-worker
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        APT_MIRROR: ${APT_MIRROR:-}
+    ports:
+      - "4060:4060"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4060/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 volumes:
   mysql_data:
   redis_data:

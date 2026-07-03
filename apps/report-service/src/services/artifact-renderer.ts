@@ -12,6 +12,12 @@ import type { ReportStorageClient } from './storage-client.js';
 import { buildReportWebHtml } from '../templates/report-web.js';
 
 const RENDER_WORKER_URL = process.env.RENDER_WORKER_URL ?? 'http://localhost:4060';
+const RENDER_WORKER_HINT =
+  'Word 渲染服务不可用。请启动 render-worker：make render-worker 或 docker compose up -d render-worker';
+
+export function isValidDocxBuffer(data: Buffer): boolean {
+  return data.length >= 4 && data[0] === 0x50 && data[1] === 0x4b;
+}
 
 export class ArtifactRenderer {
   private readonly specs = new Map<string, ReportSpec>();
@@ -78,7 +84,11 @@ export class ArtifactRenderer {
 
       const wordBytes = await this.renderWord(spec, echartsOptions);
       const storageKey = `reports/${spec.userId ?? 'anonymous'}/${spec.id}/word/report.docx`;
-      await this.storage.put(storageKey, wordBytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      await this.storage.put(
+        storageKey,
+        wordBytes,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
       const artifact: ReportArtifact = {
         reportId: spec.id,
         format: 'word',
@@ -104,36 +114,43 @@ export class ArtifactRenderer {
   }
 
   private async renderWord(spec: ReportSpec, echartsOptions: unknown[]): Promise<Buffer> {
+    await this.ensureRenderWorkerAvailable();
+
+    const res = await fetch(`${RENDER_WORKER_URL}/render/word`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spec, echartsOptions }),
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(
+        `Word 渲染失败（HTTP ${res.status}）${detail ? `: ${detail.slice(0, 300)}` : ''}. ${RENDER_WORKER_HINT}`,
+      );
+    }
+
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (!isValidDocxBuffer(bytes)) {
+      throw new Error(`Word 渲染服务返回无效文件（非 DOCX 格式）。${RENDER_WORKER_HINT}`);
+    }
+
+    return bytes;
+  }
+
+  private async ensureRenderWorkerAvailable(): Promise<void> {
     try {
-      const res = await fetch(`${RENDER_WORKER_URL}/render/word`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spec, echartsOptions }),
-        signal: AbortSignal.timeout(30_000),
+      const res = await fetch(`${RENDER_WORKER_URL}/health`, {
+        signal: AbortSignal.timeout(3_000),
       });
-      if (res.ok) {
-        return Buffer.from(await res.arrayBuffer());
-      }
+      if (res.ok) return;
     } catch (err) {
       this.logger.warn('report.render.word.worker_unavailable', {
         err: err instanceof Error ? err.message : String(err),
+        url: RENDER_WORKER_URL,
       });
     }
-    return this.renderWordFallback(spec);
-  }
-
-  private renderWordFallback(spec: ReportSpec): Buffer {
-    const lines = [
-      spec.title,
-      '',
-      spec.narrative.summary,
-      '',
-      ...(spec.narrative.insights ?? []).map((item) => `- ${item}`),
-      '',
-      `数据行数: ${spec.data.rowCount}`,
-      `生成时间: ${spec.createdAt}`,
-    ];
-    return Buffer.from(lines.join('\n'), 'utf-8');
+    throw new Error(RENDER_WORKER_HINT);
   }
 
   async getPreviewContent(reportId: string): Promise<{ contentType: string; body: Buffer } | null> {
@@ -149,6 +166,9 @@ export class ArtifactRenderer {
 
     if (artifact.storageKey) {
       const body = await this.storage.get(artifact.storageKey);
+      if (artifact.format === 'word' && !isValidDocxBuffer(body)) {
+        return null;
+      }
       const contentType =
         artifact.format === 'web'
           ? 'text/html; charset=utf-8'
@@ -162,7 +182,7 @@ export class ArtifactRenderer {
     const preview = await this.getPreviewContent(reportId);
     const artifact = this.artifacts.get(reportId);
     const spec = this.specs.get(reportId);
-    if (!preview || !artifact || !spec) return null;
+    if (!preview || !artifact || !spec || artifact.status !== 'ready') return null;
 
     const filename =
       artifact.format === 'word'
