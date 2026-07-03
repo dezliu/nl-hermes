@@ -251,7 +251,7 @@ scripts/
 
 - [业务需求 PRD](docs/PRD_业务需求文档_v1.0.md)
 - [AI 协作规范](AGENTS.md)
-- [架构设计](plan/灵析系统架构设计_86078467.plan.md)
+- [架构设计与迭代 Plan](docs/plans/README.md)
 
 ## License
 
