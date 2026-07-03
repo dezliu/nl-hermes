@@ -221,6 +221,61 @@ export class ChatRepository {
     }));
   }
 
+  async getMessage(messageId: string): Promise<(ConversationMessageRecord & { conversationId?: string }) | null> {
+    if (!this.enabled) {
+      for (const rows of this.memoryMessages.values()) {
+        const found = rows.find((m) => m.id === messageId);
+        if (found) {
+          return {
+            id: found.id,
+            conversationId: found.conversationId,
+            role: found.role,
+            content: found.content,
+            mode: found.mode,
+            status: found.status,
+            templateId: found.templateId,
+            templateType: found.templateType,
+            metadata: found.metadata,
+          };
+        }
+      }
+      return null;
+    }
+    const row = await MessageModel.query().findById(messageId);
+    if (!row) return null;
+    return {
+      id: row.id,
+      conversationId: row.conversationId,
+      role: row.role,
+      content: row.content,
+      mode: row.mode,
+      status: row.status,
+      templateId: row.templateId,
+      templateType: row.templateType,
+      metadata: row.metadata,
+    };
+  }
+
+  async findPrecedingUserQuery(conversationId: string, beforeMessageId: string): Promise<string | null> {
+    if (!this.enabled) {
+      const rows = this.memoryMessages.get(conversationId) ?? [];
+      const idx = rows.findIndex((m) => m.id === beforeMessageId);
+      for (let i = idx - 1; i >= 0; i--) {
+        if (rows[i]!.role === 'user') return rows[i]!.content;
+      }
+      return null;
+    }
+    const target = await MessageModel.query().findById(beforeMessageId);
+    if (!target) return null;
+    const row = await MessageModel.query()
+      .where('conversation_id', conversationId)
+      .where('role', 'user')
+      .where('created_at', '<', target.createdAt!)
+      .orderBy('created_at', 'desc')
+      .first();
+    return row?.content ?? null;
+  }
+
   async upsertFeedback(req: SubmitFeedbackRequest): Promise<boolean> {
     if (!this.enabled) {
       this.memoryFeedback.set(req.messageId, {

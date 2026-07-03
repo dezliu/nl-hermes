@@ -55,7 +55,14 @@ describe('orchestrator API', () => {
     expect(list.status).toBe(200);
     expect(list.body.items.length).toBeGreaterThan(0);
 
-    const messageId = 'msg-test-1';
+    const conversationId = start.body.conversationId as string;
+    const msgs = await request(app)
+      .get(`/v1/conversations/${conversationId}/messages`)
+      .query({ userId: 'u3' });
+    expect(msgs.status).toBe(200);
+    expect(msgs.body.items.length).toBeGreaterThan(0);
+    const messageId = msgs.body.items[0].id as string;
+
     const feedback = await request(app)
       .post(`/v1/messages/${messageId}/feedback`)
       .send({ userId: 'u3', messageId, rating: 'up' });

@@ -9,6 +9,7 @@ const NAV = [
   { href: '/metadata', label: '元数据管理' },
   { href: '/business-knowledge', label: '业务知识' },
   { href: '/templates', label: '模板管理' },
+  { href: '/generation-closed-loop', label: '生成闭环' },
   { href: '/prompts', label: '系统 Prompt' },
   { href: '/search-test', label: '向量检索测试' },
   { href: '/eval', label: '离线评估' },

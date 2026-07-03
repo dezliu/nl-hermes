@@ -22,4 +22,21 @@ describe('FeedbackService', () => {
     const updated = await repo.listConversationMessages('u1', conversationId);
     expect(updated[0]?.feedbackRating).toBe('down');
   });
+
+  it('requires reason when downvoting failed message', async () => {
+    const repo = createChatRepository(false);
+    const svc = createFeedbackService(repo);
+    const conversationId = await repo.createConversation('u1', 'sql', 'test');
+    const messageId = await repo.addMessage({
+      conversationId,
+      role: 'assistant',
+      content: 'SQL 校验未通过',
+      mode: 'sql',
+      status: 'failed',
+    });
+
+    await expect(svc.submit({ userId: 'u1', messageId, rating: 'down' })).rejects.toMatchObject({
+      code: 'REASON_REQUIRED',
+    });
+  });
 });

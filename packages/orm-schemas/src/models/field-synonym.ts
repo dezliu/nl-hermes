@@ -7,4 +7,13 @@ export class FieldSynonymModel extends BaseModel {
   synonym!: string;
 
   static tableName = META_TABLES.FIELD_SYNONYMS;
+
+  /** field_synonyms 表无 timestamp 列 */
+  $beforeInsert() {
+    // no timestamp columns
+  }
+
+  $beforeUpdate() {
+    // no timestamp columns
+  }
 }

@@ -8,6 +8,8 @@ export { SystemSettingModel } from './system-setting.js';
 export { AuditLogModel } from './audit-log.js';
 export { SqlTemplateModel } from './sql-template.js';
 export { ReportTemplateModel } from './report-template.js';
+export { TemplateCandidateModel } from './template-candidate.js';
+export { GenerationFeedbackItemModel } from './generation-feedback-item.js';
 export { RoleModel } from './role.js';
 export { ConversationModel } from './conversation.js';
 export { MessageModel } from './message.js';

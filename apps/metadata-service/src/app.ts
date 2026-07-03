@@ -8,7 +8,9 @@ import { PromptService } from './services/prompt-service.js';
 import { SettingsService } from './services/settings-service.js';
 import { TemplateService } from './services/template-service.js';
 import { BusinessKnowledgeService } from './services/business-knowledge-service.js';
+import { ClosedLoopService } from './services/closed-loop-service.js';
 import { mountRoutes } from './routes/index.js';
+import { mountClosedLoopRoutes } from './routes/closed-loop-routes.js';
 import { mountMonitorRoutes } from './routes/monitor-routes.js';
 import { AlertRepository } from './repositories/alert-repository.js';
 import { AlertService } from './services/alert-service.js';
@@ -29,6 +31,7 @@ export function createMetadataApp(options: { enableServiceAuth?: boolean; servic
     template: new TemplateService(repos, logger),
     businessKnowledge: new BusinessKnowledgeService(repos, logger),
   };
+  const closedLoop = new ClosedLoopService(repos, logger);
 
   const alertRepo = new AlertRepository();
   const alertService = new AlertService(alertRepo, logger);
@@ -37,6 +40,7 @@ export function createMetadataApp(options: { enableServiceAuth?: boolean; servic
 
   const app = createServiceApp('metadata-service', options);
   mountRoutes(app, ctx);
+  mountClosedLoopRoutes(app, closedLoop);
   mountMonitorRoutes(app, { monitor: monitorService, alerts: alertService });
 
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

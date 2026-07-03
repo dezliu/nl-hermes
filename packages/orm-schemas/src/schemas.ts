@@ -14,6 +14,7 @@ export const META_TABLES = {
   SYSTEM_SETTINGS: 'system_settings',
   ALERTS: 'alerts',
   AUDIT_LOGS: 'audit_logs',
+  TEMPLATE_CANDIDATES: 'template_candidates',
 } as const;
 
 export const CHAT_TABLES = {
@@ -22,6 +23,7 @@ export const CHAT_TABLES = {
   WORKFLOW_CHECKPOINTS: 'workflow_checkpoints',
   MESSAGE_FEEDBACK: 'message_feedback',
   GENERATION_AUDIT: 'generation_audit',
+  GENERATION_FEEDBACK_ITEMS: 'generation_feedback_items',
 } as const;
 
 export const EVAL_TABLES = {

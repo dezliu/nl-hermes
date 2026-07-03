@@ -10,6 +10,7 @@ import { createFeedbackService } from './services/feedback-service.js';
 import { createTemplateRecommendationService } from './services/template-recommendation-service.js';
 import { createTemplateApplyService } from './services/template-apply-service.js';
 import { createMetadataTemplateClient } from './lib/metadata-template-client.js';
+import { createMetadataClosedLoopClient } from './lib/metadata-closed-loop-client.js';
 
 export type OrchestratorAppOptions = {
   enableServiceAuth?: boolean;
@@ -23,6 +24,7 @@ export async function createOrchestratorApp(options: OrchestratorAppOptions = {}
   const redis = options.redis ?? (await createRedisClient()) ?? createInMemoryRedis();
   const repo = createChatRepository(options.dbEnabled !== false);
   const metadataTemplates = createMetadataTemplateClient();
+  const closedLoop = createMetadataClosedLoopClient();
   const templateApply = createTemplateApplyService(metadataTemplates);
   const chat = new ChatService({
     logger,
@@ -32,13 +34,14 @@ export async function createOrchestratorApp(options: OrchestratorAppOptions = {}
     redis,
     dbEnabled: options.dbEnabled !== false,
     templateApply,
+    closedLoop,
   });
 
   const app = createServiceApp('orchestrator', options);
   mountChatRoutes(app, chat);
   mountUserFeatureRoutes(app, {
     conversations: createConversationService(repo),
-    feedback: createFeedbackService(repo),
+    feedback: createFeedbackService(repo, closedLoop),
     templateRecommendations: createTemplateRecommendationService(),
     templateApply,
   });

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Button,
   Drawer,
@@ -16,6 +17,7 @@ import {
 } from 'antd';
 import { AdminLayout } from '../../components/AdminLayout';
 import {
+  closedLoopApi,
   ragApi,
   templateApi,
   type ReportTemplateItem,
@@ -30,13 +32,36 @@ const STATUS_LABELS: Record<string, string> = {
   archived: '停用',
 };
 
-export default function TemplatesPage() {
-  const [tab, setTab] = useState<TabKey>('sql');
+type PrefillPayload = {
+  name?: string;
+  scenarioDescription?: string;
+  sqlBody?: string;
+  chartType?: 'line' | 'bar' | 'table';
+  chartConfig?: { xField?: string; yField?: string };
+  sourceFeedbackId?: string;
+};
+
+function decodePrefill(raw: string | null): PrefillPayload | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(raw)))) as PrefillPayload;
+  } catch {
+    return null;
+  }
+}
+
+function TemplatesPageContent() {
+  const searchParams = useSearchParams();
+  const prefill = decodePrefill(searchParams.get('prefill'));
+  const initialTab = (searchParams.get('tab') as TabKey) || 'sql';
+
+  const [tab, setTab] = useState<TabKey>(initialTab);
   const [sqlItems, setSqlItems] = useState<SqlTemplateItem[]>([]);
   const [reportItems, setReportItems] = useState<ReportTemplateItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<SqlTemplateItem | ReportTemplateItem | null>(null);
+  const [sourceFeedbackId, setSourceFeedbackId] = useState<string | undefined>();
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -56,11 +81,30 @@ export default function TemplatesPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!prefill) return;
+    setTab(initialTab);
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({
+      name: prefill.name,
+      scenarioDescription: prefill.scenarioDescription,
+      sqlBody: prefill.sqlBody,
+      status: 'draft',
+      inLibrary: false,
+      chartType: prefill.chartType ?? 'table',
+      chartConfig: prefill.chartConfig ?? { xField: '', yField: '' },
+    });
+    setSourceFeedbackId(prefill.sourceFeedbackId);
+    setDrawerOpen(true);
+  }, [prefill, initialTab, form]);
 
   const openCreate = () => {
     setEditing(null);
+    setSourceFeedbackId(undefined);
     form.resetFields();
     form.setFieldsValue({
       status: 'draft',
@@ -73,6 +117,7 @@ export default function TemplatesPage() {
 
   const openEdit = (row: SqlTemplateItem | ReportTemplateItem) => {
     setEditing(row);
+    setSourceFeedbackId(undefined);
     form.setFieldsValue(row);
     setDrawerOpen(true);
   };
@@ -85,19 +130,28 @@ export default function TemplatesPage() {
   const onSave = async () => {
     const values = await form.validateFields();
     try {
+      let templateId: string | undefined;
       if (tab === 'sql') {
         if (editing) {
           await templateApi.updateSql(editing.id, values);
+          templateId = editing.id;
         } else {
-          await templateApi.createSql(values);
+          const res = await templateApi.createSql(values);
+          templateId = res.item.id;
         }
       } else if (editing) {
         await templateApi.updateReport(editing.id, values);
+        templateId = editing.id;
       } else {
-        await templateApi.createReport(values);
+        const res = await templateApi.createReport(values);
+        templateId = res.item.id;
+      }
+      if (sourceFeedbackId && templateId) {
+        await closedLoopApi.resolveFeedback(sourceFeedbackId, { resultTemplateId: templateId });
       }
       message.success('已保存');
       setDrawerOpen(false);
+      setSourceFeedbackId(undefined);
       await load();
       await rebuildTemplatesIndex();
     } catch (e) {
@@ -199,7 +253,7 @@ export default function TemplatesPage() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={640}
-        extra={<Button type="primary" onClick={onSave}>保存</Button>}
+        extra={<Button type="primary" onClick={() => void onSave()}>保存</Button>}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="模板名称" rules={[{ required: true }]}>
@@ -250,5 +304,19 @@ export default function TemplatesPage() {
         </Form>
       </Drawer>
     </AdminLayout>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminLayout>
+          <div style={{ padding: 24, color: '#64748B' }}>加载中...</div>
+        </AdminLayout>
+      }
+    >
+      <TemplatesPageContent />
+    </Suspense>
   );
 }

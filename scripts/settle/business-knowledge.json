@@ -88,5 +88,15 @@
     "title": "业务员钱包余额预警",
     "category": "rule",
     "content": "业务员代扣前需校验 nl_courier_wallet.balance 是否充足。余额不足时代扣失败，bill_item.pay_status 保持 PAYING 或 FAILED，需充值后重试。"
+  },
+  {
+    "title": "业务员派费收入",
+    "category": "metric",
+    "content": "业务员派费收入应查 hst_order（order_type='COURIER_DELIVERY_FEE'），通过 object_code 或 JOIN nl_courier ON hst_order.object_code=nl_courier.staff_code 按 staff_code 过滤。order_type 仅存在于 hst_order，不可用于 hwt_trade_info（该表用 trade_type/biz_type）。已结算口径：JOIN hst_bill_item ON hst_pay_order.pay_code 关联后 SUM(hst_bill_item.amount) WHERE rec_object=业务员编号。"
+  },
+  {
+    "title": "hwt_trade_info 与 hst_order 字段区分",
+    "category": "glossary",
+    "content": "hwt_trade_info 是钱包交易表，字段含 trade_type、biz_type、amount、finish_time，无 order_type。hst_order 是结算订单表，含 order_type、order_amount、business_time。查派费类型/订单类型用 hst_order.order_type，查钱包代扣金额用 hwt_trade_info.amount。"
   }
 ]

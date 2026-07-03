@@ -78,6 +78,10 @@ export default function ChatPage() {
   const [templateDismissed, setTemplateDismissed] = useState(false);
   const [paramModalOpen, setParamModalOpen] = useState(false);
   const [paramForm] = Form.useForm<Record<string, string>>();
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackTargetId, setFeedbackTargetId] = useState<string | null>(null);
+  const [feedbackReason, setFeedbackReason] = useState('');
+  const [feedbackRequireReason, setFeedbackRequireReason] = useState(false);
   const [templateDetail, setTemplateDetail] = useState<{ placeholders: string[]; name: string } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -478,11 +482,29 @@ export default function ChatPage() {
         { input: { userId: DEMO_USER_ID, messageId, rating, reason } },
       );
       setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, feedbackRating: rating } : m)));
-      message.success('感谢反馈');
+      message.success(rating === 'down' ? '感谢反馈，管理员将跟进优化' : '感谢反馈');
     } catch (err) {
       message.error(err instanceof Error ? err.message : '反馈提交失败');
     }
   }, []);
+
+  const openFeedbackDown = useCallback((messageId: string, requireReason: boolean) => {
+    setFeedbackTargetId(messageId);
+    setFeedbackRequireReason(requireReason);
+    setFeedbackReason('');
+    setFeedbackModalOpen(true);
+  }, []);
+
+  const submitFeedbackDown = useCallback(async () => {
+    if (!feedbackTargetId) return;
+    if (feedbackRequireReason && !feedbackReason.trim()) {
+      message.warning('请填写不满意原因');
+      return;
+    }
+    await handleFeedback(feedbackTargetId, 'down', feedbackReason.trim() || undefined);
+    setFeedbackModalOpen(false);
+    setFeedbackTargetId(null);
+  }, [feedbackTargetId, feedbackReason, feedbackRequireReason, handleFeedback]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#FFF7ED' }}>
@@ -707,13 +729,27 @@ export default function ChatPage() {
                         size="small"
                         type={m.feedbackRating === 'down' ? 'primary' : 'text'}
                         danger={m.feedbackRating === 'down'}
-                        onClick={() => void handleFeedback(m.id, 'down')}
+                        onClick={() => openFeedbackDown(m.id, false)}
                       >
                         👎
                       </Button>
                     </Space>
                   </div>
                 )}
+                {m.role === 'assistant' &&
+                  (m.status === 'failed' || m.status === 'interrupted') &&
+                  m.content && (
+                    <div style={{ marginTop: 8, textAlign: 'right' }}>
+                      <Button
+                        size="small"
+                        type={m.feedbackRating === 'down' ? 'primary' : 'text'}
+                        danger={m.feedbackRating === 'down'}
+                        onClick={() => openFeedbackDown(m.id, true)}
+                      >
+                        👎 反馈问题
+                      </Button>
+                    </div>
+                  )}
               </div>
             </div>
           ))}
@@ -748,6 +784,22 @@ export default function ChatPage() {
           )}
         </div>
       </main>
+
+      <Modal
+        title="反馈问题"
+        open={feedbackModalOpen}
+        onCancel={() => setFeedbackModalOpen(false)}
+        onOk={() => void submitFeedbackDown()}
+        okText="提交反馈"
+        cancelText="取消"
+      >
+        <Input.TextArea
+          rows={3}
+          placeholder={feedbackRequireReason ? '请描述遇到的问题（必填）' : '可选：描述不满意的原因'}
+          value={feedbackReason}
+          onChange={(e) => setFeedbackReason(e.target.value)}
+        />
+      </Modal>
 
       <Modal
         title={`填写模板参数${templateDetail ? ` · ${templateDetail.name}` : ''}`}

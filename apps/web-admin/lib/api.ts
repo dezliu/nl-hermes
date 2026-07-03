@@ -203,6 +203,70 @@ export const templateApi = {
     }),
 };
 
+export type TemplateCandidateItem = {
+  id: string;
+  sourceMessageId: string;
+  conversationId: string;
+  mode: 'sql' | 'report';
+  userQuery: string;
+  scenarioDescription: string;
+  sqlBody: string;
+  chartType?: 'line' | 'bar' | 'table' | null;
+  chartConfig?: Record<string, unknown> | null;
+  ragScore?: number | null;
+  userUpvoted: boolean;
+  priority: number;
+  status: 'pending' | 'approved' | 'rejected';
+  templateId?: string | null;
+  createdAt?: string;
+};
+
+export type GenerationFeedbackItem = {
+  id: string;
+  messageId: string;
+  conversationId: string;
+  mode: 'sql' | 'report';
+  userQuery: string;
+  assistantContent: string;
+  generatedSql?: string | null;
+  refuseReason?: string | null;
+  ragScore?: number | null;
+  feedbackReason: string;
+  status: 'open' | 'resolved';
+  resolvedBy?: string | null;
+  resolvedAt?: string | null;
+  resultTemplateId?: string | null;
+  createdAt?: string;
+};
+
+export const closedLoopApi = {
+  listCandidates: (status?: string) =>
+    request<{ items: TemplateCandidateItem[] }>(
+      METADATA_URL,
+      `/v1/template-candidates${status ? `?status=${status}` : ''}`,
+    ),
+  approveCandidate: (id: string, body?: { name?: string; inLibrary?: boolean }) =>
+    request<{ candidate: TemplateCandidateItem; template: unknown }>(
+      METADATA_URL,
+      `/v1/template-candidates/${id}/approve`,
+      { method: 'POST', body: JSON.stringify(body ?? { inLibrary: false }) },
+    ),
+  rejectCandidate: (id: string) =>
+    request<{ item: TemplateCandidateItem }>(METADATA_URL, `/v1/template-candidates/${id}/reject`, {
+      method: 'POST',
+    }),
+  listFeedback: (status?: string) =>
+    request<{ items: GenerationFeedbackItem[] }>(
+      METADATA_URL,
+      `/v1/generation-feedback${status ? `?status=${status}` : ''}`,
+    ),
+  resolveFeedback: (id: string, body?: { resultTemplateId?: string }) =>
+    request<{ item: GenerationFeedbackItem }>(METADATA_URL, `/v1/generation-feedback/${id}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify(body ?? {}),
+    }),
+};
+
 export const ragApi = {
   retrieve: (body: unknown) =>
     request<{ results: { id: string; content: string; score: number; matchReason?: string }[] }>(

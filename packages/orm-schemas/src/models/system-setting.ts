@@ -9,4 +9,10 @@ export class SystemSettingModel extends BaseModel {
   updatedBy?: string | null;
 
   static tableName = META_TABLES.SYSTEM_SETTINGS;
+
+  /** system_settings 表仅有 updated_at，无 created_at */
+  $beforeInsert() {
+    const now = new Date().toISOString().slice(0, 23).replace('T', ' ');
+    if (!this.updatedAt) this.updatedAt = now;
+  }
 }

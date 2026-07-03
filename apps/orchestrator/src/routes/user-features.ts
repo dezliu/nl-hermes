@@ -87,7 +87,13 @@ export function mountUserFeatureRoutes(app: Express, ctx: UserFeatureRoutesConte
       res.status(400).json({ error: 'invalid_request', message: 'messageId 不一致' });
       return;
     }
-    await ctx.feedback.submit(body);
-    res.json({ ok: true });
+    try {
+      await ctx.feedback.submit(body);
+      res.json({ ok: true });
+    } catch (err) {
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : 'feedback_failed';
+      const message = err instanceof Error ? err.message : '反馈提交失败';
+      res.status(code === 'REASON_REQUIRED' ? 400 : 404).json({ error: code, message });
+    }
   });
 }

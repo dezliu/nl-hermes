@@ -181,8 +181,18 @@ export class PromptRepository {
       const deactivate = PromptVersionModel.query(t);
       if (data.roleId) deactivate.where('role_id', data.roleId);
       else deactivate.whereNull('role_id');
-      await deactivate.patch({ isActive: false });
-      return PromptVersionModel.query(t).insert({
+      // #region agent log
+      fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c03f1c'},body:JSON.stringify({sessionId:'c03f1c',location:'repositories/index.ts:createVersion',message:'before deactivate patch',data:{roleId:data.roleId??null,nextVersion:version,modelHasBeforeUpdate:typeof (PromptVersionModel.prototype as { $beforeUpdate?: () => void }).$beforeUpdate},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
+      try {
+        await deactivate.patch({ isActive: false });
+      } catch (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c03f1c'},body:JSON.stringify({sessionId:'c03f1c',location:'repositories/index.ts:createVersion',message:'deactivate patch failed',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
+        throw err;
+      }
+      const row = await PromptVersionModel.query(t).insert({
         id: crypto.randomUUID(),
         roleId: data.roleId ?? null,
         persona: data.persona,
@@ -191,6 +201,10 @@ export class PromptRepository {
         isActive: true,
         createdBy: data.createdBy ?? null,
       });
+      // #region agent log
+      fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c03f1c'},body:JSON.stringify({sessionId:'c03f1c',location:'repositories/index.ts:createVersion',message:'version created',data:{id:row.id,version:row.version,roleId:row.roleId??null},timestamp:Date.now(),hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
+      // #endregion
+      return row;
     };
     return trx ? run(trx) : PromptVersionModel.transaction(run);
   }

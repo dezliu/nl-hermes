@@ -1,4 +1,5 @@
 import type { RetrieveResult } from '@hermes/contracts';
+import { formatUnknownColumnFeedback } from '@hermes/shared';
 import type { WorkflowGraphState } from './state.js';
 import type { NodeResult, WorkflowDeps } from './types.js';
 import { DEFAULT_WORKFLOW_LIMITS } from './state.js';
@@ -329,8 +330,13 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
 
   const columnCheck = checkColumnGrounding({ sql: state.generatedSql, schemaContext: state.schemaContext });
   if (!columnCheck.ok) {
-    const unknown = columnCheck.unknownColumns?.join(', ') ?? '未知字段';
-    const msg = `SQL 包含知识库外的字段：${unknown}`;
+    const detail =
+      columnCheck.misassignedColumns?.join(', ') ??
+      columnCheck.unknownColumns?.join(', ') ??
+      '未知字段';
+    const msg = columnCheck.misassignedColumns?.length
+      ? `SQL 字段表引用错误：${detail}`
+      : `SQL 包含知识库外的字段：${detail}`;
     deps.emit({ type: 'chunk', content: `\n⚠️ ${msg}\n` });
     if (state.validateRetryCount < state.maxValidateRetries) {
       return {
@@ -370,7 +376,10 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
           currentNode: 'ValidateResult',
         };
       }
-      const msg = errors.map((e: { message: string }) => e.message).join('; ') || 'SQL 校验失败';
+      const rawMsg = errors.map((e: { message: string }) => e.message).join('; ') || 'SQL 校验失败';
+      const msg = rawMsg.includes('Unknown column')
+        ? formatUnknownColumnFeedback(rawMsg, state.schemaContext)
+        : rawMsg;
       deps.emit({ type: 'chunk', content: `\n⚠️ 校验失败：${msg}\n` });
       if (state.validateRetryCount < state.maxValidateRetries) {
         return {
@@ -501,9 +510,11 @@ export async function groundingCheckNode(state: WorkflowGraphState, deps: Workfl
     deps.logger.warn('workflow.grounding.failed', {
       unknown: check.unknownTokens ?? check.unknownColumns,
     });
-    const detail = check.unknownColumns?.length
-      ? `未知字段：${check.unknownColumns.join(', ')}`
-      : `未知表：${check.unknownTokens?.join(', ') ?? ''}`;
+    const detail = check.misassignedColumns?.length
+      ? `字段表引用错误：${check.misassignedColumns.join(', ')}`
+      : check.unknownColumns?.length
+        ? `未知字段：${check.unknownColumns.join(', ')}`
+        : `未知表：${check.unknownTokens?.join(', ') ?? ''}`;
     return {
       intent: 'refuse',
       refuseReason: `抱歉，生成结果包含知识库外的未定义字段，请重新描述需求。${detail}`,

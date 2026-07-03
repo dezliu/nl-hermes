@@ -22,6 +22,7 @@ import { createLlmProviderFromEnv } from '@hermes/llm-tools';
 import type { ChatRepository } from '../repositories/chat-repository.js';
 import type { GenerationLock, InterruptRegistry, RedisLike } from '../lib/redis.js';
 import type { TemplateApplyService } from './template-apply-service.js';
+import type { MetadataClosedLoopClient } from '../lib/metadata-closed-loop-client.js';
 
 export type ChatServiceOptions = {
   logger: Logger;
@@ -31,6 +32,7 @@ export type ChatServiceOptions = {
   redis: RedisLike | null;
   dbEnabled?: boolean;
   templateApply?: TemplateApplyService;
+  closedLoop?: MetadataClosedLoopClient;
 };
 
 export class ChatService {
@@ -183,20 +185,50 @@ export class ChatService {
         status: finalState.status,
       });
 
+      const assistantStatus =
+        finalState.status === 'interrupted' ? 'interrupted' : finalState.status === 'failed' ? 'failed' : 'completed';
+
+      const messageMetadata = {
+        phases: finalState.currentPhase,
+        ragScore: finalState.ragScore,
+        sql: finalState.generatedSql,
+        chartConfig: finalState.chartConfig,
+        refuseReason: finalState.refuseReason,
+        lastError: finalState.lastError,
+        workflowNode: finalState.currentNode,
+        userQuery: input.query,
+        redisRef,
+      };
+
       const messageId = await this.opts.repo.addMessage({
         conversationId,
         role: 'assistant',
-        content: finalState.generatedContent ?? '',
+        content: finalState.generatedContent ?? finalState.refuseReason ?? '',
         mode: input.mode,
-        status: finalState.status === 'interrupted' ? 'interrupted' : finalState.status === 'failed' ? 'failed' : 'completed',
-        metadata: {
-          phases: finalState.currentPhase,
-          ragScore: finalState.ragScore,
-          sql: finalState.generatedSql,
-          chartConfig: finalState.chartConfig,
-          redisRef,
-        },
+        status: assistantStatus,
+        metadata: messageMetadata,
       });
+
+      if (
+        assistantStatus === 'completed' &&
+        finalState.generatedSql &&
+        !finalState.refuseReason &&
+        this.opts.closedLoop
+      ) {
+        void this.opts.closedLoop.createCandidate({
+          sourceMessageId: messageId,
+          conversationId,
+          mode: input.mode,
+          userQuery: input.query,
+          sqlBody: finalState.generatedSql,
+          chartType:
+            input.mode === 'report' && finalState.chartConfig?.chartType
+              ? (finalState.chartConfig.chartType as 'line' | 'bar' | 'table')
+              : undefined,
+          chartConfig: finalState.chartConfig,
+          ragScore: finalState.ragScore,
+        });
+      }
 
       await this.opts.repo.updateCheckpoint(runId, {
         status: finalState.status,

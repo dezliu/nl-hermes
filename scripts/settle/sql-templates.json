@@ -3,5 +3,10 @@
     "name": "近7天资金流水",
     "scenarioDescription": "查询最近7天 fund_flow 跨系统资金流水账务记录，按创建时间倒序",
     "sqlBody": "SELECT business_id, amount, in_ex_type, settlement_type_code, gmt_create\nFROM fund_flow\nWHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)\nORDER BY gmt_create DESC"
+  },
+  {
+    "name": "业务员派费收入",
+    "scenarioDescription": "查询指定业务员的派费（COURIER_DELIVERY_FEE）结算订单金额汇总；order_type 仅属 hst_order",
+    "sqlBody": "SELECT c.staff_code, c.name, SUM(o.order_amount) AS delivery_fee_income\nFROM hst_order o\nJOIN nl_courier c ON o.object_code = c.staff_code\nWHERE o.order_type = 'COURIER_DELIVERY_FEE'\n  AND c.staff_code = {{staff_code}}\nGROUP BY c.staff_code, c.name"
   }
 ]

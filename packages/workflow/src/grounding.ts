@@ -1,4 +1,5 @@
 import type { RetrieveResult } from '@hermes/contracts';
+import { buildStructuredSchema } from '@hermes/shared';
 
 const SQL_KEYWORDS = new Set([
   'select', 'from', 'where', 'and', 'or', 'not', 'in', 'is', 'null', 'as', 'on', 'join',
@@ -30,46 +31,129 @@ function collectKnownTables(schemaContext: RetrieveResult[]): Set<string> {
   return known;
 }
 
-function extractSqlTables(sql: string): string[] {
-  const matches = [...sql.matchAll(/(?:from|join)\s+[`"']?(\w+)[`"']?/gi)];
-  return matches.map((m) => m[1]!.toLowerCase());
+function extractSqlTablesAndAliases(sql: string): Map<string, string> {
+  const aliasMap = new Map<string, string>();
+  const pattern = /(?:from|join)\s+[`"']?(\w+)[`"']?(?:\s+(?:as\s+)?[`"']?(\w+)[`"']?)?/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(sql)) !== null) {
+    const table = match[1]!.toLowerCase();
+    aliasMap.set(table, table);
+    if (match[2] && !SQL_KEYWORDS.has(match[2].toLowerCase())) {
+      aliasMap.set(match[2].toLowerCase(), table);
+    }
+  }
+  return aliasMap;
 }
 
-function extractSqlColumnRefs(sql: string): string[] {
+function extractSqlTables(sql: string): string[] {
+  return [...extractSqlTablesAndAliases(sql).values()];
+}
+
+type QualifiedRef = { tableOrAlias: string | null; column: string };
+
+function extractQualifiedRefs(sql: string): QualifiedRef[] {
   const stripped = sql.replace(/'[^']*'/g, ' ').replace(/"[^"]*"/g, ' ').replace(/`[^`]*`/g, ' ');
-  const segments: string[] = [];
-  const clausePattern = /\b(where|join|group by|order by|having)\b/gi;
+  const refs: QualifiedRef[] = [];
+
+  const selectMatch = stripped.match(/\bselect\b([\s\S]*?)\bfrom\b/i);
+  if (selectMatch) {
+    const selectClause = selectMatch[1]!;
+    for (const m of selectClause.matchAll(/\b([a-z_][a-z0-9_]*)\s*\.\s*([a-z_][a-z0-9_]*)\b/gi)) {
+      refs.push({ tableOrAlias: m[1]!.toLowerCase(), column: m[2]!.toLowerCase() });
+    }
+  }
+
+  const clausePattern = /\b(where|join|on|group by|order by|having)\b/gi;
   let match: RegExpExecArray | null;
   while ((match = clausePattern.exec(stripped)) !== null) {
     const start = match.index + match[0].length;
     const rest = stripped.slice(start);
-    const nextClause = rest.search(/\b(select|from|where|join|group by|order by|having|limit)\b/i);
-    segments.push(nextClause >= 0 ? rest.slice(0, nextClause) : rest);
-  }
+    const nextClause = rest.search(/\b(select|from|where|join|on|group by|order by|having|limit)\b/i);
+    const segment = nextClause >= 0 ? rest.slice(0, nextClause) : rest;
 
-  const refs: string[] = [];
-  for (const segment of segments) {
     for (const m of segment.matchAll(/\b([a-z_][a-z0-9_]*)\s*\.\s*([a-z_][a-z0-9_]*)\b/gi)) {
-      refs.push(m[2]!.toLowerCase());
+      refs.push({ tableOrAlias: m[1]!.toLowerCase(), column: m[2]!.toLowerCase() });
     }
     for (const m of segment.matchAll(/\b([a-z_][a-z0-9_]*)\b/gi)) {
-      refs.push(m[1]!.toLowerCase());
+      const token = m[1]!.toLowerCase();
+      if (!SQL_KEYWORDS.has(token)) {
+        refs.push({ tableOrAlias: null, column: token });
+      }
     }
   }
+
   return refs;
+}
+
+function resolveTable(
+  tableOrAlias: string | null,
+  aliasMap: Map<string, string>,
+): string | null {
+  if (!tableOrAlias) return null;
+  return aliasMap.get(tableOrAlias) ?? (aliasMap.has(tableOrAlias) ? tableOrAlias : tableOrAlias);
 }
 
 export function checkColumnGrounding(input: {
   sql?: string;
   schemaContext: RetrieveResult[];
-}): { ok: boolean; unknownColumns?: string[] } {
+}): { ok: boolean; unknownColumns?: string[]; misassignedColumns?: string[] } {
   if (!input.sql?.trim()) return { ok: true };
 
+  const schema = buildStructuredSchema(input.schemaContext);
+  const schemaTables = Object.keys(schema);
+  if (schemaTables.length === 0) {
+    return checkColumnGroundingLegacy(input);
+  }
+
+  const aliasMap = extractSqlTablesAndAliases(input.sql);
+  const refs = extractQualifiedRefs(input.sql);
+  const unknown: string[] = [];
+  const misassigned: string[] = [];
+
+  for (const ref of refs) {
+    const { tableOrAlias, column } = ref;
+    if (SQL_KEYWORDS.has(column) || /^\d/.test(column)) continue;
+
+    const owners = schemaTables.filter((t) => schema[t]!.includes(column));
+    if (owners.length === 0) {
+      if (!collectKnownTokens(input.schemaContext).has(column)) {
+        unknown.push(column);
+      }
+      continue;
+    }
+
+    if (tableOrAlias) {
+      const resolved = resolveTable(tableOrAlias, aliasMap);
+      if (resolved && schema[resolved] && !schema[resolved]!.includes(column)) {
+        misassigned.push(`${resolved}.${column}`);
+      } else if (resolved && !schema[resolved] && owners.length > 0 && !owners.includes(resolved)) {
+        misassigned.push(`${tableOrAlias}.${column}`);
+      }
+    }
+  }
+
+  const uniqueUnknown = [...new Set(unknown)];
+  const uniqueMisassigned = [...new Set(misassigned)];
+
+  if (uniqueMisassigned.length > 0) {
+    return { ok: false, misassignedColumns: uniqueMisassigned };
+  }
+  if (uniqueUnknown.length > 0) {
+    return { ok: false, unknownColumns: uniqueUnknown };
+  }
+  return { ok: true };
+}
+
+/** Fallback when schema cannot be parsed from context. */
+function checkColumnGroundingLegacy(input: {
+  sql?: string;
+  schemaContext: RetrieveResult[];
+}): { ok: boolean; unknownColumns?: string[] } {
   const known = collectKnownTokens(input.schemaContext);
   if (known.size === 0) return { ok: true };
 
   const knownTables = collectKnownTables(input.schemaContext);
-  const refs = extractSqlColumnRefs(input.sql);
+  const refs = extractQualifiedRefs(input.sql!).map((r) => r.column);
   const unknown = [...new Set(
     refs.filter(
       (col) =>
@@ -105,13 +189,17 @@ export function checkSqlGrounding(input: {
   sql?: string;
   schemaContext: RetrieveResult[];
   businessKnowledge: RetrieveResult[];
-}): { ok: boolean; unknownTokens?: string[]; unknownColumns?: string[] } {
+}): { ok: boolean; unknownTokens?: string[]; unknownColumns?: string[]; misassignedColumns?: string[] } {
   const tableCheck = checkGrounding(input);
   if (!tableCheck.ok) return tableCheck;
 
   const columnCheck = checkColumnGrounding(input);
   if (!columnCheck.ok) {
-    return { ok: false, unknownColumns: columnCheck.unknownColumns };
+    return {
+      ok: false,
+      unknownColumns: columnCheck.unknownColumns,
+      misassignedColumns: columnCheck.misassignedColumns,
+    };
   }
 
   return { ok: true };

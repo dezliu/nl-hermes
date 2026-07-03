@@ -1,6 +1,8 @@
 import type { OpenAiCompatibleClient } from './openai-compatible-client.js';
 import { createMockLlmProvider } from './mock-provider.js';
 import type { LlmProvider, RolePromptInput } from './types.js';
+import { formatStructuredSchema } from '@hermes/shared';
+import type { RetrieveResult } from '@hermes/contracts';
 
 function extractJson(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -25,12 +27,21 @@ function contextSummary(items: unknown[]): string {
 function buildSystemPrompt(rolePrompt?: RolePromptInput): string {
   const parts = [
     '安全约束：仅生成 SELECT 查询；禁止 DDL/DML；仅引用上下文中的表与字段。',
-    '字段约束：WHERE/SELECT/ORDER BY 中的列名必须出现在 Schema 上下文中；禁止臆造 trade_date、created_at 等上下文中不存在的列名。',
+    '字段约束：WHERE/SELECT/ORDER BY/GROUP BY 中的列名必须出现在 Schema JSON 中对应表的字段列表内；禁止把 A 表的字段写到 B 表（如 order_type 仅属 hst_order，不可用于 hwt_trade_info）；禁止臆造上下文中不存在的列名。',
     '时间过滤：若用户指定时间范围，必须使用 Schema 中已有的日期/时间字段（如 gmt_create、finish_time）；若上下文无合适时间字段，在 explanation 中说明而非编造列名。',
+    '多表场景：优先参考业务知识中的 JOIN 路径；无明确路径时在 explanation 说明假设。',
+    '输出语言：面向用户的 explanation 默认使用简体中文；SQL、表名、字段名、枚举值保持物理名不翻译。仅当用户明确要求其他语言时使用对应语言。',
   ];
   if (rolePrompt?.persona) parts.push(`角色设定: ${rolePrompt.persona}`);
   if (rolePrompt?.constraints) parts.push(`系统限制: ${rolePrompt.constraints}`);
   return parts.join('\n\n');
+}
+
+function schemaBlock(schemaContext: RetrieveResult[] | unknown[]): string {
+  const items = schemaContext as RetrieveResult[];
+  const structured = formatStructuredSchema(items);
+  if (structured === '（无）') return structured;
+  return `结构化 Schema（JSON，列名必须属于对应表）:\n${structured}`;
 }
 
 async function completeJson(
@@ -159,7 +170,7 @@ export function createOpenAiStyleLlmProvider(
             content: [
               `用户问题: ${input.query}`,
               `模式: ${input.mode}`,
-              `Schema:\n${contextSummary(input.schemaContext)}`,
+              `Schema:\n${schemaBlock(input.schemaContext)}`,
               `业务知识:\n${contextSummary(input.businessKnowledge)}`,
               `示例:\n${contextSummary(input.examples)}`,
               input.errorFeedback ? `上次错误: ${input.errorFeedback}` : '',
@@ -195,7 +206,7 @@ export function createOpenAiStyleLlmProvider(
             role: 'user' as const,
             content: [
               `用户问题: ${input.query}`,
-              `Schema:\n${contextSummary(input.schemaContext)}`,
+              `Schema:\n${schemaBlock(input.schemaContext)}`,
               `业务知识:\n${contextSummary(input.businessKnowledge)}`,
               `示例:\n${contextSummary(input.examples)}`,
               input.errorFeedback ? `上次错误: ${input.errorFeedback}` : '',

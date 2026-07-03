@@ -13,3 +13,9 @@ export { requestLoggingMiddleware } from './middleware.js';
 export { redact } from './redact.js';
 export { loadEnv } from './load-env.js';
 export { browserCorsMiddleware, createBrowserCorsOptions } from './cors.js';
+export {
+  buildStructuredSchema,
+  formatStructuredSchema,
+  findColumnOwners,
+  formatUnknownColumnFeedback,
+} from './schema-context.js';
