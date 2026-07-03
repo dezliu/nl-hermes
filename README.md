@@ -23,6 +23,9 @@
               ▼          ▼          ▼
          rag-service  report-service  Redis
            :4020        :4030
+                           │
+                    render-worker
+                      :4060
 ```
 
 ## 技术栈
@@ -222,29 +225,187 @@ Seed 完成后会创建：
 
 执行标记：`.hermes/settle-seed.done`（本地文件，已 gitignore）。`make clean` 会删除该标记。
 
-## 项目结构
+## 模块说明
+
+Monorepo 由 **pnpm workspace + Turbo** 管理，分为 `apps/`（可部署服务）、`packages/`（共享库）、`migrations/`（数据库迁移）与 `scripts/`（运维脚本）。
+
+### 依赖关系
+
+```mermaid
+flowchart TB
+  subgraph frontends [前端]
+    WU[web-user :3001]
+    WA[web-admin :3002]
+    WM[web-monitor :3003]
+  end
+
+  GW[gateway-api :4000]
+
+  subgraph backends [后端微服务]
+    ORC[orchestrator :4010]
+    RAG[rag-service :4020]
+    RPT[report-service :4030]
+    EVAL[eval-service :4040]
+    META[metadata-service :4050]
+    RW[render-worker :4060]
+  end
+
+  subgraph infra [基础设施]
+    MySQL[(MySQL)]
+    Redis[(Redis)]
+    Qdrant[(Qdrant)]
+    OS[(OpenSearch)]
+  end
+
+  WU & WA & WM --> GW
+  GW --> ORC & RPT
+  ORC --> RAG & RPT & META
+  RPT --> RW
+  WA --> META & RAG & EVAL
+  WM --> META
+  META & ORC & EVAL --> MySQL
+  ORC --> Redis
+  RAG --> Qdrant & OS & META
+```
+
+### 后端服务（`apps/`）
+
+| 模块 | 包名 | 端口 | 职责 |
+|------|------|------|------|
+| **gateway-api** | `@hermes/gateway-api` | 4000 | GraphQL 统一入口：对话启动/流式 SSE、会话与模板查询、报表预览代理；转发至 orchestrator / report-service |
+| **orchestrator** | `@hermes/orchestrator` | 4010 | 对话编排：LangGraph 工作流执行、生成锁与中断、会话/反馈/模板推荐；REST `/v1/chat/*` |
+| **rag-service** | `@hermes/rag-service` | 4020 | 混合检索：BM25（OpenSearch）+ 向量（Qdrant）RRF 融合与重排；索引重建 `/v1/index/rebuild` |
+| **report-service** | `@hermes/report-service` | 4030 | SQL 执行与校验、报表生成/渲染/分享、模板匹配、已发布查询 API |
+| **eval-service** | `@hermes/eval-service` | 4040 | 离线评估：评估集/用例 CRUD、批量运行与结果汇总 |
+| **metadata-service** | `@hermes/metadata-service` | 4050 | 元数据中枢：数据源、表字段、Prompt、模板、业务知识、生成闭环、监控指标与告警 |
+| **render-worker** | —（Python FastAPI） | 4060 | Word DOCX 渲染与 matplotlib 图表嵌入，供 report-service 调用 |
+
+**orchestrator 主要 REST 路由**
+
+| 前缀 | 说明 |
+|------|------|
+| `POST /v1/chat/start` | 启动一次生成（返回 runId / checkpointId） |
+| `POST /v1/chat/stream` | SSE 流式推送工作流事件 |
+| `POST /v1/chat/continue` | 从 checkpoint 续跑（如澄清后） |
+| `POST /v1/chat/cancel` | 取消进行中的生成 |
+| `/v1/conversations/*` | 会话列表与消息历史 |
+| `/v1/feedback/*` | 消息点赞/点踩，联动生成闭环 |
+| `/v1/templates/*` | 模板推荐与应用 |
+| `/v1/reports/*` | 报表产物查询与下载代理 |
+
+**metadata-service 主要能力**
+
+| 领域 | REST 前缀 | 说明 |
+|------|-----------|------|
+| 数据源 | `/v1/datasources` | 连接配置、测试、元数据同步预览与执行 |
+| 元数据 | `/v1/meta/*` | 表/字段业务描述、查询库（published query） |
+| 模板 | `/v1/templates` | SQL / 报表模板 CRUD |
+| Prompt | `/v1/prompts` | 按角色版本化管理 |
+| 业务知识 | `/v1/business-knowledge` | 术语与知识条目 |
+| 生成闭环 | `/v1/closed-loop/*` | 候选模板审核、失败反馈处理 |
+| 监控 | `/v1/monitor/*` | KPI、时序指标、告警列表 |
+
+### AI 工作流（`packages/workflow`）
+
+LangGraph 状态图，由 orchestrator 加载执行。节点流水线：
+
+```
+SecurityGuard → LoadContext → TemplateMatch → IntentClassify
+  → RagPrepare → RagRetrieve → RagQualityGate
+  → GenerateSQL / GenerateReport → ValidateResult
+  → ExecuteReport → SummarizeResult → AnalyzeReport
+  → ComposeSpec → RenderArtifact → GroundingCheck
+  → StreamOutput / Clarify / DirectAnswer / Refuse
+```
+
+| 节点 | 作用 |
+|------|------|
+| SecurityGuard | 输入安全校验，拦截越权或恶意 prompt |
+| LoadContext | 加载数据源 schema、角色 Prompt |
+| TemplateMatch | 检索可复用 SQL/报表模板 |
+| IntentClassify | 判定 SQL / 报表 / 直接回答 / 澄清 |
+| RagRetrieve | 调用 rag-service 获取 schema 与业务上下文 |
+| GenerateSQL / GenerateReport | LLM 生成 SQL 或报表规格 |
+| ValidateResult | EXPLAIN / 语法校验 |
+| ExecuteReport | 执行查询并取数 |
+| GroundingCheck | SQL 与 schema 对齐校验 |
+| RenderArtifact | 调用 report-service 产出 Web / Word 报表 |
+
+配套包 **`@hermes/llm-tools`** 提供 LangChain Tool 注册、RAG/Report/Metadata HTTP 客户端与 LLM Provider 工厂（支持 Mock / OpenAI 兼容接口）。
+
+### 前端应用（`apps/web-*`）
+
+| 模块 | 包名 | 端口 | 页面与功能 |
+|------|------|------|------------|
+| **web-user** | `@hermes/web-user` | 3001 | 自然语言对话、SQL/报表结果展示、ReportViewer（Web/Word 预览与下载） |
+| **web-admin** | `@hermes/web-admin` | 3002 | 管理后台（`/admin`）：数据源、元数据、业务知识、模板、生成闭环、Prompt、检索测试、离线评估、告警 |
+| **web-monitor** | `@hermes/web-monitor` | 3003 | 监控看板：KPI 卡片、时序图表、告警横幅（对接 metadata-service 监控 API） |
+
+三端共用 **`@hermes/ui-shared`**：`AppShell` 壳层（`admin` / `user` / `monitor` 变体）与 `theme.css` 主题。
+
+### 共享包（`packages/`）
+
+| 包名 | 职责 |
+|------|------|
+| `@hermes/shared` | 日志、traceId、鉴权中间件、CORS、Express 服务脚手架、`loadEnv` |
+| `@hermes/contracts` | 微服务间请求/响应类型（检索、SQL 执行、报表、评估、闭环等） |
+| `@hermes/orm-schemas` | Objection.js 模型与 Knex 连接（meta / chat / eval 三库） |
+| `@hermes/workflow` | LangGraph 图定义、节点实现、checkpoint、grounding |
+| `@hermes/llm-tools` | Tool 定义、服务客户端、LLM Provider |
+| `@hermes/ui-shared` | 前端共享布局与主题 |
+| `@hermes/observability` | Langfuse 追踪、性能计时、Prompt 脱敏 |
+| `@hermes/report-mcp-adapter` | 报表 MCP 适配层（可选，默认 :4031） |
+| `@hermes/contract-tests` | 工作流与各服务契约回归测试 |
+| `@hermes/performance` | RAG 延迟、首 token、评估吞吐等性能预算测试 |
+
+### 数据库（`migrations/`）
+
+三套 MySQL schema，由 `make migrate` / `pnpm migrate` 统一执行：
+
+| Schema | 迁移包 | 主要表 |
+|--------|--------|--------|
+| `hermes_meta` | `@hermes/migrations-meta` | datasource、meta_table/field、sql/report_template、prompt_version、business_knowledge、alert、system_setting |
+| `hermes_chat` | `@hermes/migrations-chat` | conversation、message、message_feedback、workflow_checkpoint、report_artifact、generation_feedback_item、template_candidate |
+| `hermes_eval` | `@hermes/migrations-eval` | eval_set、eval_case、eval_run、eval_result |
+
+业务演示库 **`hermes_settle`**（18 张结算表）由 `scripts/seed-settle.ts` 导入，不属于上述迁移范围。
+
+### 目录速览
 
 ```
 apps/
   gateway-api/        # GraphQL 网关
-  metadata-service/   # 元数据/Prompt/模板
-  orchestrator/       # LangGraph 工作流
+  orchestrator/       # 对话编排 + LangGraph 运行时
   rag-service/        # BM25 + 向量检索
-  report-service/     # 报表生成
+  report-service/     # SQL 执行与报表生成
   eval-service/       # 离线评估
-  web-user/           # 用户前端
+  metadata-service/   # 元数据 / Prompt / 模板 / 监控
+  render-worker/      # Python Word/图表渲染
+  web-user/           # 用户对话平台
   web-admin/          # 管理后台
   web-monitor/        # 监控看板
 packages/
-  shared/             # 公共类型/工具
-  contracts/          # 服务间契约
-  llm-tools/          # LangChain Tool 定义
-  workflow/           # 工作流节点/状态
-  orm-schemas/        # ORM 模型
-  ui-shared/          # 前端共享组件
+  shared/             # 公共基础设施
+  contracts/          # 服务间契约类型
+  orm-schemas/        # ORM 模型（25+ 实体）
+  workflow/           # LangGraph 工作流
+  llm-tools/          # LangChain Tool + LLM 客户端
+  ui-shared/          # 前端共享组件与主题
+  observability/      # Langfuse + 性能预算
+  report-mcp-adapter/ # 报表 MCP 适配
+  contract-tests/     # 契约测试
+  performance/        # 性能回归测试
+migrations/
+  meta/               # hermes_meta 迁移
+  chat/               # hermes_chat 迁移
+  eval/               # hermes_eval 迁移
 scripts/
+  migrate.ts          # 三库迁移入口
   seed-settle.ts      # 结算演示数据一键 Seed
   settle/             # Seed SQL、查询库与业务知识配置
+docker/
+  nginx/              # 全栈反向代理配置
+  Dockerfile.*        # 各服务镜像
 ```
 
 ## 文档

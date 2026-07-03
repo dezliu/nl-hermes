@@ -1,13 +1,30 @@
-# 灵析敏捷看板 — SQL Grounding 优化
+# 灵析敏捷看板
 
-> 最后更新：2026-07-03 15:53
+> 最后更新：2026-07-03 16:50
 
 ## 进行中
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
+| README 模块说明梳理 | ✅ 已完成 | 补充 apps/packages/migrations 职责、依赖图、工作流节点与 REST 路由 |
 | 全量自动化测试报告 | ✅ 已完成 | `test_report.md` — 215 用例全通过，耗时 8.19s |
 | 三端页面样式对齐 mockup | ✅ 已完成 | Admin / 监控 / 用户端视觉与 docs/mockup 对齐 |
+
+## 本次交付（2026-07-03 · README 模块梳理）
+
+### 已完成
+
+- [x] **架构依赖图**：Mermaid 流程图（前端 → gateway → 微服务 → 基础设施）
+- [x] **后端服务表**：7 个 apps 职责、端口、主要 REST 路由
+- [x] **工作流节点**：LangGraph 流水线与各节点说明
+- [x] **共享包**：补全 observability / performance / report-mcp-adapter / contract-tests
+- [x] **数据库**：三 schema（meta / chat / eval）与主要表清单
+- [x] **目录速览**：含 render-worker、migrations、docker
+
+### 涉及文件
+
+- `README.md`（「模块说明」章节重写）
+- `docs/progress-board.md`（本看板）
 
 ## 本次交付（2026-07-03 · 测试报告）
 
