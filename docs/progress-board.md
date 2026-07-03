@@ -6,9 +6,26 @@
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| Word 报表 render-worker | ✅ 已完成 | Python docx + matplotlib 图表嵌入 |
+| 三端页面样式对齐 mockup | ✅ 已完成 | Admin / 监控 / 用户端视觉与 docs/mockup 对齐 |
 
-## 本次交付（2026-07-03）
+## 本次交付（2026-07-03 · 页面样式）
+
+### 已完成
+
+- [x] **共享主题**：`packages/ui-shared/src/theme.css` — Admin 浅色侧栏、用户端暖橙、监控深色三主题
+- [x] **AppShell 变体**：`admin` / `user` / `monitor`，移除通用顶栏，各端独立壳层
+- [x] **管理后台**：品牌区、分组导航、激活指示条、顶栏面包屑、首页卡片网格
+- [x] **监控看板**：深色 KPI 卡片、告警横幅、品牌 Header、折线图面板
+- [x] **用户对话**：顶部导航、历史侧栏、聊天气泡、输入区与 mockup 结构一致
+
+### 涉及文件
+
+- `packages/ui-shared/src/theme.css`、`app-shell.tsx`
+- `apps/web-admin/components/AdminLayout.tsx`、`lib/admin-nav.ts`、`app/layout.tsx`、`app/page.tsx`
+- `apps/web-monitor/app/page.tsx`、`app/layout.tsx`
+- `apps/web-user/app/page.tsx`、`app/layout.tsx`、`app/antd-provider.tsx`
+
+## 历史交付（2026-07-03 · Word 报表）
 
 ### 已完成
 

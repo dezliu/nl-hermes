@@ -3,50 +3,62 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ADMIN_NAV } from '../lib/admin-nav';
-
-const NAV = ADMIN_NAV.map(({ href, label }) => ({ href, label }));
+import { ADMIN_NAV, ADMIN_NAV_SECTIONS, adminPageLabel } from '../lib/admin-nav';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const pageLabel = adminPageLabel(pathname);
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 57px)' }}>
-      <aside
-        style={{
-          width: 220,
-          background: '#1E293B',
-          color: '#CBD5E1',
-          padding: '16px 8px',
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ padding: '8px 12px', marginBottom: 12, fontWeight: 600, color: '#F1F5F9' }}>
-          管理后台
+    <div className="admin-layout">
+      <aside className="admin-sidebar">
+        <div className="admin-brand">
+          <div className="admin-brand-mark">灵</div>
+          <div>
+            <div className="admin-brand-text">灵析 LingAnalytics</div>
+            <div className="admin-brand-sub">管理后台</div>
+          </div>
         </div>
-        {NAV.map((item) => {
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: 'block',
-                padding: '8px 12px',
-                borderRadius: 6,
-                marginBottom: 4,
-                color: active ? '#93C5FD' : '#CBD5E1',
-                background: active ? 'rgba(59,130,246,0.15)' : 'transparent',
-                textDecoration: 'none',
-                fontSize: 13,
-              }}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+        <nav className="admin-nav" aria-label="管理后台导航">
+          {ADMIN_NAV_SECTIONS.map((section) => (
+            <div key={section}>
+              <div className="admin-nav-section">{section}</div>
+              {ADMIN_NAV.filter((item) => item.section === section).map((item) => {
+                const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`admin-nav-item${active ? ' active' : ''}`}
+                  >
+                    <span className="admin-nav-icon" aria-hidden>
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+        <div className="admin-sidebar-footer">
+          <div className="admin-user-chip">
+            <div className="admin-avatar">管</div>
+            <div>
+              <div style={{ color: '#E2E8F0', fontSize: 12 }}>管理员</div>
+              <div style={{ fontSize: 10, color: '#64748B' }}>数据管理员</div>
+            </div>
+          </div>
+        </div>
       </aside>
-      <main style={{ flex: 1, padding: 24, background: '#F8FAFC' }}>{children}</main>
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <div className="admin-breadcrumb">
+            管理后台 / <strong>{pageLabel}</strong>
+          </div>
+        </header>
+        <main className="admin-content">{children}</main>
+      </div>
     </div>
   );
 }

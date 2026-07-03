@@ -5,27 +5,18 @@ import { ADMIN_NAV } from '../lib/admin-nav';
 export default function HomePage() {
   return (
     <AdminLayout>
-      <h1 style={{ fontSize: 20, marginBottom: 8 }}>灵析管理后台</h1>
-      <p style={{ color: '#64748B', marginBottom: 20 }}>
-        数据源、元数据、模板与生成闭环等管理能力入口。
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+      <div className="page-header">
+        <h1 className="page-title">灵析管理后台</h1>
+        <p className="page-desc">数据源、元数据、模板与生成闭环等管理能力入口。</p>
+      </div>
+      <div className="admin-card-grid">
         {ADMIN_NAV.map((card) => (
-          <Link
-            key={card.href}
-            href={card.href}
-            style={{
-              display: 'block',
-              padding: 16,
-              background: '#fff',
-              border: '1px solid #E2E8F0',
-              borderRadius: 8,
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>{card.label}</div>
-            <div style={{ fontSize: 12, color: '#64748B' }}>{card.desc}</div>
+          <Link key={card.href} href={card.href} className="admin-card">
+            <div className="admin-card-title">
+              <span style={{ marginRight: 8, opacity: 0.7 }}>{card.icon}</span>
+              {card.label}
+            </div>
+            <div className="admin-card-desc">{card.desc}</div>
           </Link>
         ))}
       </div>

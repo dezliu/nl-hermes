@@ -5,7 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./theme.css": "./src/theme.css"
   },
   "scripts": { "build": "tsc", "lint": "tsc --noEmit", "clean": "rm -rf dist" },
   "peerDependencies": { "react": "^18.0.0", "antd": "^5.0.0" },

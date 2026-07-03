@@ -1,0 +1,908 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Merriweather:wght@400;700&display=swap');
+
+/* ── Admin ── */
+.hermes-admin {
+  --sidebar: #1e293b;
+  --sidebar-hover: #334155;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-secondary: #64748b;
+  --primary: #3b82f6;
+  --primary-light: #eff6ff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.hermes-admin .admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.hermes-admin .admin-sidebar {
+  width: 220px;
+  background: var(--sidebar);
+  color: #cbd5e1;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hermes-admin .admin-brand {
+  padding: 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hermes-admin .admin-brand-mark {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.hermes-admin .admin-brand-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.hermes-admin .admin-brand-sub {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.hermes-admin .admin-nav {
+  flex: 1;
+  padding: 12px 8px;
+  overflow-y: auto;
+}
+
+.hermes-admin .admin-nav-section {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  padding: 12px 12px 6px;
+}
+
+.hermes-admin .admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #cbd5e1;
+  text-decoration: none;
+  margin-bottom: 2px;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hermes-admin .admin-nav-item:hover {
+  background: var(--sidebar-hover);
+  color: #f1f5f9;
+}
+
+.hermes-admin .admin-nav-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.hermes-admin .admin-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 0 2px 2px 0;
+}
+
+.hermes-admin .admin-nav-icon {
+  width: 18px;
+  text-align: center;
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+.hermes-admin .admin-sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hermes-admin .admin-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hermes-admin .admin-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.hermes-admin .admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hermes-admin .admin-topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hermes-admin .admin-breadcrumb {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.hermes-admin .admin-breadcrumb strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.hermes-admin .admin-content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.hermes-admin .page-header {
+  margin-bottom: 20px;
+}
+
+.hermes-admin .page-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.hermes-admin .page-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.hermes-admin .admin-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.hermes-admin .admin-card {
+  display: block;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.hermes-admin .admin-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.hermes-admin .admin-card-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.hermes-admin .admin-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ── User ── */
+.hermes-user {
+  --primary: #f97316;
+  --primary-dark: #ea580c;
+  --primary-light: #ffedd5;
+  --bg: #fff7ed;
+  --surface: #ffffff;
+  --border: #fed7aa;
+  --border-light: #ffedd5;
+  --text: #431407;
+  --text-secondary: #9a3412;
+  --gray: #78716c;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hermes-user .user-topnav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  padding: 0 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.06);
+  flex-shrink: 0;
+}
+
+.hermes-user .user-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hermes-user .user-nav-mark {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary) 0%, #fb923c 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Merriweather', serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+}
+
+.hermes-user .user-nav-title {
+  font-family: 'Merriweather', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.hermes-user .user-nav-subtitle {
+  font-size: 12px;
+  color: var(--gray);
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+}
+
+.hermes-user .user-nav-links {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.hermes-user .user-nav-link {
+  font-size: 14px;
+  color: var(--gray);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.hermes-user .user-nav-link.active {
+  color: var(--primary);
+}
+
+.hermes-user .user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.hermes-user .user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.hermes-user .user-workspace {
+  flex: 1;
+  display: flex;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 32px;
+  gap: 24px;
+  min-height: 0;
+}
+
+.hermes-user .history-panel {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.04);
+  max-height: calc(100vh - 64px - 48px);
+}
+
+.hermes-user .history-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.hermes-user .history-header h2 {
+  font-family: 'Merriweather', serif;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.hermes-user .new-chat-btn {
+  width: 100%;
+}
+
+.hermes-user .history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.hermes-user .history-item {
+  padding: 12px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+
+.hermes-user .history-item:hover {
+  background: var(--bg);
+}
+
+.hermes-user .history-item.active {
+  background: var(--primary-light);
+  border-color: var(--border);
+}
+
+.hermes-user .history-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.hermes-user .history-item-time {
+  font-size: 12px;
+  color: var(--gray);
+}
+
+.hermes-user .chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hermes-user .chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hermes-user .chat-header h1 {
+  font-family: 'Merriweather', serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.hermes-user .chat-header-desc {
+  font-size: 14px;
+  color: var(--gray);
+  margin: 0;
+}
+
+.hermes-user .chat-body {
+  flex: 1;
+  min-height: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 16px 16px 0 0;
+  padding: 20px 28px;
+  overflow-y: auto;
+}
+
+.hermes-user .template-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.hermes-user .template-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.hermes-user .template-card-content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.hermes-user .bubble-user {
+  display: inline-block;
+  max-width: 85%;
+  padding: 12px 18px;
+  border-radius: 18px 4px 18px 18px;
+  background: var(--primary);
+  color: #fff;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.hermes-user .message-user {
+  text-align: right;
+  margin-bottom: 16px;
+}
+
+.hermes-user .message-assistant {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.hermes-user .assistant-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.hermes-user .bubble-assistant {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 4px 18px 18px 18px;
+  padding: 14px 18px;
+  color: var(--text);
+  white-space: pre-wrap;
+  max-width: 85%;
+}
+
+.hermes-user .chat-input-area {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  padding: 16px 20px 20px;
+}
+
+.hermes-user .input-wrapper {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.hermes-user .input-hint {
+  font-size: 12px;
+  color: var(--gray);
+  margin-top: 10px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .hermes-user .history-panel {
+    display: none;
+  }
+  .hermes-user .user-workspace {
+    padding: 16px;
+  }
+  .hermes-user .user-nav-links {
+    display: none;
+  }
+}
+
+/* ── Monitor ── */
+.hermes-monitor {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #334155;
+  --border: #334155;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --cyan: #06b6d4;
+  --purple: #8b5cf6;
+  --green: #10b981;
+  --yellow: #fbbf24;
+  --red: #ef4444;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hermes-monitor .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hermes-monitor .monitor-alert-banner {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hermes-monitor .monitor-alert-icon {
+  width: 28px;
+  height: 28px;
+  background: rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--red);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.hermes-monitor .monitor-alert-text {
+  flex: 1;
+  font-size: 13px;
+}
+
+.hermes-monitor .monitor-alert-text strong {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.hermes-monitor .monitor-alert-text span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.hermes-monitor .monitor-alert-action {
+  padding: 6px 14px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #fca5a5;
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.hermes-monitor .monitor-header {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.hermes-monitor .monitor-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hermes-monitor .monitor-header-mark {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.hermes-monitor .monitor-header-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hermes-monitor .monitor-header-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.hermes-monitor .monitor-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.hermes-monitor .live-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hermes-monitor .live-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+}
+
+.hermes-monitor .monitor-refresh-btn {
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hermes-monitor .monitor-refresh-btn:hover {
+  color: var(--text);
+  border-color: var(--surface-2);
+}
+
+.hermes-monitor .monitor-dashboard {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.hermes-monitor .kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.hermes-monitor .kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hermes-monitor .kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.hermes-monitor .kpi-card.cyan::before {
+  background: var(--cyan);
+}
+.hermes-monitor .kpi-card.purple::before {
+  background: var(--purple);
+}
+.hermes-monitor .kpi-card.green::before {
+  background: var(--green);
+}
+.hermes-monitor .kpi-card.yellow::before {
+  background: var(--yellow);
+}
+
+.hermes-monitor .kpi-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.hermes-monitor .kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hermes-monitor .kpi-delta {
+  font-size: 11px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+.hermes-monitor .kpi-delta.up {
+  color: var(--green);
+}
+.hermes-monitor .kpi-delta.down {
+  color: var(--red);
+}
+
+.hermes-monitor .charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.hermes-monitor .chart-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.hermes-monitor .chart-panel.span-2 {
+  grid-column: span 1;
+}
+
+.hermes-monitor .chart-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hermes-monitor .chart-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hermes-monitor .chart-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.hermes-monitor .chart-body {
+  padding: 16px 18px 20px;
+}
+
+.hermes-monitor .time-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.hermes-monitor .time-tab {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.hermes-monitor .time-tab.active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.hermes-monitor .sat-panel {
+  margin-top: 16px;
+}
+
+.hermes-monitor .sat-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.hermes-monitor .sat-stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.hermes-monitor .sat-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hermes-monitor .sat-stat-value.up {
+  color: var(--green);
+}
+.hermes-monitor .sat-stat-value.down {
+  color: var(--red);
+}
+
+.hermes-monitor .tag-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.hermes-monitor .monitor-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+@media (max-width: 1100px) {
+  .hermes-monitor .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hermes-monitor .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .hermes-monitor .kpi-row {
+    grid-template-columns: 1fr;
+  }
+  .hermes-monitor .monitor-header-meta {
+    display: none;
+  }
+}

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
-  Card,
   Collapse,
   Empty,
   Form,
@@ -39,7 +38,7 @@ import {
 import { ReportViewer } from '../components/ReportViewer';
 
 const { TextArea } = Input;
-const { Text, Paragraph, Title } = Typography;
+const { Text, Paragraph } = Typography;
 
 type ChatMessage = {
   id: string;
@@ -532,40 +531,24 @@ export default function ChatPage() {
   }, [feedbackTargetId, feedbackReason, feedbackRequireReason, handleFeedback]);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#FFF7ED' }}>
-      <aside
-        style={{
-          width: 280,
-          borderRight: '1px solid #FFEDD5',
-          background: '#fff',
-          padding: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Title level={5} style={{ margin: 0, color: '#431407' }}>
-            历史会话
-          </Title>
-          <Button size="small" type="primary" ghost onClick={handleNewConversation} disabled={streaming}>
-            新对话
+    <div className="user-workspace">
+      <aside className="history-panel">
+        <div className="history-header">
+          <h2>历史会话</h2>
+          <Button className="new-chat-btn" type="primary" onClick={handleNewConversation} disabled={streaming}>
+            + 新对话
           </Button>
         </div>
         {conversations.length === 0 ? (
-          <Empty description="开始您的第一次数据提问吧" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <div style={{ padding: 16 }}>
+            <Empty description="开始您的第一次数据提问吧" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          </div>
         ) : (
-          <div style={{ overflowY: 'auto', flex: 1 }}>
+          <div className="history-list">
             {conversations.map((c) => (
               <div
                 key={c.id}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  marginBottom: 8,
-                  cursor: 'pointer',
-                  background: conversationId === c.id ? '#FFEDD5' : '#FFF7ED',
-                }}
+                className={`history-item${conversationId === c.id ? ' active' : ''}`}
                 onClick={() => void loadConversation(c.id)}
               >
                 {renamingId === c.id ? (
@@ -580,10 +563,10 @@ export default function ChatPage() {
                   />
                 ) : (
                   <>
-                    <div style={{ fontWeight: 600, color: '#431407' }}>{c.title}</div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <div className="history-item-title">{c.title}</div>
+                    <div className="history-item-time">
                       {formatConversationTime(c.lastActiveAt)} · {c.mode === 'sql' ? 'SQL' : '报表'}
-                    </Text>
+                    </div>
                   </>
                 )}
                 <Space size={4} style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
@@ -614,13 +597,11 @@ export default function ChatPage() {
         )}
       </aside>
 
-      <main style={{ flex: 1, maxWidth: 960, margin: '0 auto', padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 16, flexWrap: 'wrap' }}>
+      <main className="chat-area">
+        <div className="chat-header">
           <div>
-            <Title level={3} style={{ margin: 0, color: '#431407' }}>
-              智能对话
-            </Title>
-            <Text type="secondary">自然语言生成 SQL / 报表，模板推荐与满意度反馈</Text>
+            <h1>有什么数据想查？</h1>
+            <p className="chat-header-desc">自然语言生成 SQL / 报表，模板推荐与满意度反馈</p>
           </div>
           <Space wrap>
             <Select
@@ -660,129 +641,113 @@ export default function ChatPage() {
           </Space>
         </div>
 
-        {templateSuggestion && !templateDismissed && !streaming && (
-          <Card
-            size="small"
-            style={{ marginBottom: 12, borderColor: '#FDBA74', background: '#FFF7ED' }}
-            title={templatePrompt}
-          >
-            <div style={{ marginBottom: 8 }}>
-              <Text strong>{templateSuggestion.name}</Text>
-              <div style={{ color: '#9A3412', fontSize: 13 }}>{templateSuggestion.scenarioDescription}</div>
-              <Text type="secondary">匹配度 {(templateSuggestion.score * 100).toFixed(0)}%</Text>
+        <div className="chat-body">
+          {templateSuggestion && !templateDismissed && !streaming && (
+            <div className="template-card">
+              <div className="template-card-content">
+                <h3>{templatePrompt}</h3>
+                <Text strong>{templateSuggestion.name}</Text>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+                  {templateSuggestion.scenarioDescription}
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  匹配度 {(templateSuggestion.score * 100).toFixed(0)}%
+                </Text>
+              </div>
+              <Space>
+                <Button onClick={() => setTemplateDismissed(true)}>忽略</Button>
+                <Button type="primary" onClick={() => void handleApplyTemplate()}>
+                  套用模板
+                </Button>
+              </Space>
             </div>
-            <Space>
-              <Button type="primary" style={{ background: '#F97316' }} onClick={() => void handleApplyTemplate()}>
-                套用
-              </Button>
-              <Button onClick={() => setTemplateDismissed(true)}>忽略</Button>
-            </Space>
-          </Card>
-        )}
+          )}
 
-        <section
-          style={{
-            minHeight: 420,
-            background: '#fff',
-            border: '1px solid #FFEDD5',
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 16,
-          }}
-        >
           {messages.length === 0 && (
             <Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 120 }}>
               输入业务问题开始对话，例如：「近 7 天各区域销售额」
             </Paragraph>
           )}
-          {messages.map((m) => (
-            <div key={m.id} style={{ marginBottom: 16, textAlign: m.role === 'user' ? 'right' : 'left' }}>
-              <div
-                style={{
-                  display: 'inline-block',
-                  maxWidth: '85%',
-                  padding: '10px 14px',
-                  borderRadius: 12,
-                  background: m.role === 'user' ? '#F97316' : '#FFF7ED',
-                  color: m.role === 'user' ? '#fff' : '#431407',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {m.role === 'assistant' && (m.steps?.length ?? 0) > 0 && (
-                  <div style={{ marginBottom: 10, textAlign: 'left' }}>
-                    <Steps
+          {messages.map((m) =>
+            m.role === 'user' ? (
+              <div key={m.id} className="message-user">
+                <div className="bubble-user">{m.content}</div>
+              </div>
+            ) : (
+              <div key={m.id} className="message-assistant">
+                <div className="assistant-avatar">✦</div>
+                <div className="bubble-assistant">
+                  {(m.steps?.length ?? 0) > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <Steps
+                        size="small"
+                        direction="vertical"
+                        current={(m.steps?.length ?? 1) - 1}
+                        items={(m.steps ?? []).map((s) => ({
+                          title: s.step,
+                          description: s.detail,
+                        }))}
+                      />
+                    </div>
+                  )}
+                  {m.thinking && (
+                    <Collapse
                       size="small"
-                      direction="vertical"
-                      current={(m.steps?.length ?? 1) - 1}
-                      items={(m.steps ?? []).map((s) => ({
-                        title: s.step,
-                        description: s.detail,
-                      }))}
+                      style={{ marginBottom: 10 }}
+                      items={[
+                        {
+                          key: 'thinking',
+                          label: '思考过程',
+                          children: (
+                            <pre
+                              style={{
+                                margin: 0,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                fontSize: 12,
+                                maxHeight: 240,
+                                overflow: 'auto',
+                              }}
+                            >
+                              {m.thinking}
+                            </pre>
+                          ),
+                        },
+                      ]}
+                      defaultActiveKey={streaming ? ['thinking'] : []}
                     />
-                  </div>
-                )}
-                {m.role === 'assistant' && m.thinking && (
-                  <Collapse
-                    size="small"
-                    style={{ marginBottom: 10, textAlign: 'left' }}
-                    items={[
-                      {
-                        key: 'thinking',
-                        label: '思考过程',
-                        children: (
-                          <pre
-                            style={{
-                              margin: 0,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              fontSize: 12,
-                              maxHeight: 240,
-                              overflow: 'auto',
-                            }}
-                          >
-                            {m.thinking}
-                          </pre>
-                        ),
-                      },
-                    ]}
-                    defaultActiveKey={streaming ? ['thinking'] : []}
-                  />
-                )}
-                {m.content || (m.role === 'assistant' && streaming ? <Spin size="small" /> : null)}
-                {m.role === 'assistant' && (m.reportSpec || m.reportArtifact) && (
-                  <ReportViewer reportSpec={m.reportSpec} reportArtifact={m.reportArtifact} />
-                )}
-                {m.status === 'interrupted' && (
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>（已中断）</div>
-                )}
-                {m.role === 'assistant' && m.status === 'completed' && (
-                  <div style={{ marginTop: 8, textAlign: 'right' }}>
-                    <Space size={4}>
+                  )}
+                  {m.content || (streaming ? <Spin size="small" /> : null)}
+                  {(m.reportSpec || m.reportArtifact) && (
+                    <ReportViewer reportSpec={m.reportSpec} reportArtifact={m.reportArtifact} />
+                  )}
+                  {m.status === 'interrupted' && (
+                    <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>（已中断）</div>
+                  )}
+                  {m.status === 'completed' && (
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                       <Button
                         size="small"
-                        type={m.feedbackRating === 'up' ? 'primary' : 'text'}
+                        type={m.feedbackRating === 'up' ? 'primary' : 'default'}
                         onClick={() => void handleFeedback(m.id, 'up')}
                       >
-                        👍
+                        👍 有帮助
                       </Button>
                       <Button
                         size="small"
-                        type={m.feedbackRating === 'down' ? 'primary' : 'text'}
+                        type={m.feedbackRating === 'down' ? 'primary' : 'default'}
                         danger={m.feedbackRating === 'down'}
                         onClick={() => openFeedbackDown(m.id, false)}
                       >
-                        👎
+                        👎 不满意
                       </Button>
-                    </Space>
-                  </div>
-                )}
-                {m.role === 'assistant' &&
-                  (m.status === 'failed' || m.status === 'interrupted') &&
-                  m.content && (
+                    </div>
+                  )}
+                  {(m.status === 'failed' || m.status === 'interrupted') && m.content && (
                     <div style={{ marginTop: 8, textAlign: 'right' }}>
                       <Button
                         size="small"
-                        type={m.feedbackRating === 'down' ? 'primary' : 'text'}
+                        type={m.feedbackRating === 'down' ? 'primary' : 'default'}
                         danger={m.feedbackRating === 'down'}
                         onClick={() => openFeedbackDown(m.id, true)}
                       >
@@ -790,38 +755,44 @@ export default function ChatPage() {
                       </Button>
                     </div>
                   )}
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
           {streaming && phaseLabel && (
             <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
               {phaseLabel}
             </Text>
           )}
-        </section>
+        </div>
 
-        <div style={{ display: 'flex', gap: 12 }}>
-          <TextArea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={mode === 'sql' ? '描述你想查询的数据…' : '描述你想生成的报表…'}
-            autoSize={{ minRows: 2, maxRows: 5 }}
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-          />
-          {streaming ? (
-            <Button danger onClick={() => void handleStop()}>
-              停止生成
-            </Button>
-          ) : (
-            <Button type="primary" onClick={() => void handleSend()} disabled={!input.trim()} style={{ background: '#F97316' }}>
-              发送
-            </Button>
-          )}
+        <div className="chat-input-area">
+          <div className="input-wrapper">
+            <TextArea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={mode === 'sql' ? '描述你想查询的数据…' : '描述你想生成的报表…'}
+              autoSize={{ minRows: 2, maxRows: 5 }}
+              variant="borderless"
+              style={{ flex: 1, background: 'transparent' }}
+              onPressEnter={(e) => {
+                if (!e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+            />
+            {streaming ? (
+              <Button danger onClick={() => void handleStop()}>
+                停止
+              </Button>
+            ) : (
+              <Button type="primary" size="large" onClick={() => void handleSend()} disabled={!input.trim()}>
+                发送
+              </Button>
+            )}
+          </div>
+          <div className="input-hint">Enter 发送 · Shift+Enter 换行</div>
         </div>
       </main>
 

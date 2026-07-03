@@ -1,1 +1,1 @@
-export { AppShell } from './app-shell.js';
+export { AppShell, type AppShellVariant } from './app-shell.js';

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { AppShell } from '@hermes/ui-shared';
+import { AntdProvider } from './antd-provider';
+import '@hermes/ui-shared/theme.css';
 
 export const metadata: Metadata = {
   title: '用户对话平台',
@@ -10,7 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body>
-        <AppShell title="用户对话平台">{children}</AppShell>
+        <AntdProvider>
+          <AppShell variant="user">{children}</AppShell>
+        </AntdProvider>
       </body>
     </html>
   );
