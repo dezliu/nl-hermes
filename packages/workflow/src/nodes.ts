@@ -1,4 +1,4 @@
-import type { RetrieveResult, ReportChartSpec, ReportSpec } from '@hermes/contracts';
+import type { RetrieveResult, ReportChartSpec, ReportSpec, TemplateMatchResult } from '@hermes/contracts';
 import { randomUUID } from 'node:crypto';
 import { formatUnknownColumnFeedback } from '@hermes/shared';
 import type { WorkflowGraphState } from './state.js';
@@ -7,6 +7,12 @@ import { DEFAULT_WORKFLOW_LIMITS } from './state.js';
 import { checkSecurityGuard } from './security-guard.js';
 import { checkGrounding, checkColumnGrounding, checkSqlGrounding } from './grounding.js';
 import { computeRagScore, isRagScoreAcceptable, mergeRetrieveResults } from './rag-utils.js';
+import {
+  enrichSchemaByTables,
+  enrichSchemaForMissingColumns,
+  enrichSchemaForTemporalIntent,
+  hasTemporalQueryIntent,
+} from './schema-enrichment.js';
 
 const DATASOURCE_SETUP_HINT =
   '未配置有效数据源。请执行 pnpm seed:settle 并在 .env 设置 DEFAULT_DATASOURCE_ID。';
@@ -53,17 +59,73 @@ function rolePromptInput(state: WorkflowGraphState) {
   return { persona: state.rolePrompt.persona, constraints: state.rolePrompt.constraints };
 }
 
+function buildGenerationExamples(
+  ragExamples: RetrieveResult[],
+  templateMatches: TemplateMatchResult[],
+): RetrieveResult[] {
+  const fromMatches: RetrieveResult[] = templateMatches
+    .filter((t) => t.sqlBody?.trim())
+    .map((t) => ({
+      id: `template-match-${t.id}`,
+      content: `${t.name} ${t.scenarioDescription}\nSQL:\n${t.sqlBody}`,
+      score: t.score,
+      matchReason: 'template_match',
+    }));
+  return mergeRetrieveResults(fromMatches, ragExamples);
+}
+
+async function enrichSchemaContext(
+  schemaContext: RetrieveResult[],
+  query: string,
+  deps: WorkflowDeps,
+): Promise<RetrieveResult[]> {
+  try {
+    const { items } = await deps.metadata.listQueryLibrary();
+    let enriched = enrichSchemaByTables(schemaContext, items);
+    if (hasTemporalQueryIntent(query)) {
+      enriched = enrichSchemaForTemporalIntent(enriched, items);
+    }
+    return enriched;
+  } catch (err) {
+    deps.logger.warn('workflow.schema_enrichment.failed', { err: String(err) });
+    return schemaContext;
+  }
+}
+
+async function tryEnrichForUnknownColumns(
+  schemaContext: RetrieveResult[],
+  unknownColumns: string[],
+  sql: string,
+  deps: WorkflowDeps,
+): Promise<RetrieveResult[]> {
+  try {
+    const { items } = await deps.metadata.listQueryLibrary();
+    return enrichSchemaForMissingColumns(schemaContext, unknownColumns, items, sql);
+  } catch (err) {
+    deps.logger.warn('workflow.schema_enrichment.missing_columns.failed', { err: String(err) });
+    return schemaContext;
+  }
+}
+
+function schemaContextPatch(
+  schemaContext: RetrieveResult[],
+  state: WorkflowGraphState,
+): Pick<NodeResult, 'schemaContext'> {
+  return schemaContext !== state.schemaContext ? { schemaContext } : {};
+}
+
 async function retrieveAllCollections(
   deps: WorkflowDeps,
   query: string,
   mode: WorkflowGraphState['mode'],
+  metadataTopK = 8,
 ): Promise<{
   metadata: RetrieveResult[];
   business: RetrieveResult[];
   templates: RetrieveResult[];
 }> {
   const [metadata, business, templates] = await Promise.all([
-    deps.rag.retrieve({ query, collection: 'metadata', mode, topK: 8 }),
+    deps.rag.retrieve({ query, collection: 'metadata', mode, topK: metadataTopK }),
     deps.rag.retrieve({ query, collection: 'business', mode, topK: 6 }),
     deps.rag.retrieve({ query, collection: 'templates', mode, topK: 4 }),
   ]);
@@ -198,8 +260,10 @@ export async function ragRetrieveNode(state: WorkflowGraphState, deps: WorkflowD
   const bizSets: RetrieveResult[][] = [];
   const tplSets: RetrieveResult[][] = [];
 
+  const metadataTopK = hasTemporalQueryIntent(state.query) ? 12 : 8;
+
   const batches = await Promise.all(
-    searchQueries.map((q) => retrieveAllCollections(deps, q, state.mode)),
+    searchQueries.map((q) => retrieveAllCollections(deps, q, state.mode, metadataTopK)),
   );
   for (const batch of batches) {
     metaSets.push(batch.metadata);
@@ -207,7 +271,8 @@ export async function ragRetrieveNode(state: WorkflowGraphState, deps: WorkflowD
     tplSets.push(batch.templates);
   }
 
-  const schemaContext = mergeRetrieveResults(...metaSets);
+  let schemaContext = mergeRetrieveResults(...metaSets);
+  schemaContext = await enrichSchemaContext(schemaContext, state.query, deps);
   emitStep(deps, '检索表字段', summarizeSchemaTables(schemaContext));
 
   return {
@@ -265,7 +330,7 @@ export async function generateSqlNode(state: WorkflowGraphState, deps: WorkflowD
     query: state.query,
     schemaContext: state.schemaContext,
     businessKnowledge: state.businessKnowledge,
-    examples: state.templateExamples,
+    examples: buildGenerationExamples(state.templateExamples, state.templateMatches),
     mode: state.mode,
     rolePrompt: rolePromptInput(state),
     errorFeedback: state.lastError,
@@ -298,7 +363,7 @@ export async function generateReportNode(state: WorkflowGraphState, deps: Workfl
     query: state.query,
     schemaContext: state.schemaContext,
     businessKnowledge: state.businessKnowledge,
-    examples: state.templateExamples,
+    examples: buildGenerationExamples(state.templateExamples, state.templateMatches),
     rolePrompt: rolePromptInput(state),
     errorFeedback: state.lastError,
     onThinking: (chunk) => {
@@ -329,10 +394,22 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
 
   emitStep(deps, '校验 SQL');
 
-  const columnCheck = checkColumnGrounding({ sql: state.generatedSql, schemaContext: state.schemaContext });
-  // #region agent log
-  fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'0a543f'},body:JSON.stringify({sessionId:'0a543f',location:'nodes.ts:validateResultNode',message:'column grounding check',data:{ok:columnCheck.ok,unknownColumns:columnCheck.unknownColumns,misassignedColumns:columnCheck.misassignedColumns,schemaContextCount:state.schemaContext.length,validateRetryCount:state.validateRetryCount,sqlPreview:state.generatedSql.slice(0,200)},timestamp:Date.now(),hypothesisId:'A-B'})}).catch(()=>{});
-  // #endregion
+  let schemaContext = state.schemaContext;
+  let columnCheck = checkColumnGrounding({ sql: state.generatedSql, schemaContext });
+
+  if (!columnCheck.ok && columnCheck.unknownColumns?.length) {
+    const enriched = await tryEnrichForUnknownColumns(
+      schemaContext,
+      columnCheck.unknownColumns,
+      state.generatedSql,
+      deps,
+    );
+    if (enriched.length > schemaContext.length) {
+      schemaContext = enriched;
+      columnCheck = checkColumnGrounding({ sql: state.generatedSql, schemaContext });
+    }
+  }
+
   if (!columnCheck.ok) {
     const detail =
       columnCheck.misassignedColumns?.join(', ') ??
@@ -344,12 +421,14 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
     deps.emit({ type: 'chunk', content: `\n⚠️ ${msg}\n` });
     if (state.validateRetryCount < state.maxValidateRetries) {
       return {
+        ...schemaContextPatch(schemaContext, state),
         lastError: msg,
         validateRetryCount: state.validateRetryCount + 1,
         currentNode: 'ValidateResult',
       };
     }
     return {
+      ...schemaContextPatch(schemaContext, state),
       refuseReason: `SQL 校验未通过：${msg}`,
       intent: 'refuse',
       currentNode: 'ValidateResult',
@@ -359,6 +438,7 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
   const datasourceId = deps.datasourceId;
   if (!datasourceId) {
     return {
+      ...schemaContextPatch(schemaContext, state),
       refuseReason: DATASOURCE_SETUP_HINT,
       intent: 'refuse',
       currentNode: 'ValidateResult',
@@ -375,6 +455,7 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
       const errors = validation.errors ?? [];
       if (errors.some((e) => e.code === 'DATASOURCE_NOT_FOUND')) {
         return {
+          ...schemaContextPatch(schemaContext, state),
           refuseReason: DATASOURCE_SETUP_HINT,
           intent: 'refuse',
           currentNode: 'ValidateResult',
@@ -382,17 +463,19 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
       }
       const rawMsg = errors.map((e: { message: string }) => e.message).join('; ') || 'SQL 校验失败';
       const msg = rawMsg.includes('Unknown column')
-        ? formatUnknownColumnFeedback(rawMsg, state.schemaContext)
+        ? formatUnknownColumnFeedback(rawMsg, schemaContext)
         : rawMsg;
       deps.emit({ type: 'chunk', content: `\n⚠️ 校验失败：${msg}\n` });
       if (state.validateRetryCount < state.maxValidateRetries) {
         return {
+          ...schemaContextPatch(schemaContext, state),
           lastError: msg,
           validateRetryCount: state.validateRetryCount + 1,
           currentNode: 'ValidateResult',
         };
       }
       return {
+        ...schemaContextPatch(schemaContext, state),
         refuseReason: `SQL 校验未通过：${msg}`,
         intent: 'refuse',
         currentNode: 'ValidateResult',
@@ -402,7 +485,11 @@ export async function validateResultNode(state: WorkflowGraphState, deps: Workfl
     // report-service 不可用时跳过预检
   }
 
-  return { lastError: undefined, currentNode: 'ValidateResult' };
+  return {
+    ...schemaContextPatch(schemaContext, state),
+    lastError: undefined,
+    currentNode: 'ValidateResult',
+  };
 }
 
 export async function executeReportNode(state: WorkflowGraphState, deps: WorkflowDeps): Promise<NodeResult> {

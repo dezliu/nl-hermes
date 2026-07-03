@@ -109,6 +109,18 @@ async function getJson<T>(url: string, opts: ClientOptions): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type QueryLibraryFieldRecord = {
+  id: string;
+  tableId?: string;
+  physicalName: string;
+  businessName?: string;
+  description?: string;
+  dataType?: string;
+  tablePhysicalName: string;
+  tableBusinessName?: string;
+  synonyms?: { synonym: string }[];
+};
+
 export class MetadataClient {
   constructor(private readonly opts: ClientOptions) {}
 
@@ -130,7 +142,7 @@ export class MetadataClient {
     );
   }
 
-  listQueryLibrary(): Promise<{ items: { tableName: string; fieldName: string }[] }> {
+  listQueryLibrary(): Promise<{ items: QueryLibraryFieldRecord[] }> {
     return getJson(`${this.opts.baseUrl}/v1/meta/query-library`, this.opts);
   }
 

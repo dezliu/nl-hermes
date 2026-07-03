@@ -83,6 +83,13 @@ describe('checkColumnGrounding', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('accepts SELECT aliases in ORDER BY', () => {
+    const sql =
+      'SELECT DATE(gmt_create) AS dt, SUM(amount) AS total_amount FROM fund_flow WHERE gmt_create >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) GROUP BY DATE(gmt_create) ORDER BY dt DESC';
+    const result = checkColumnGrounding({ sql, schemaContext: fundFlowSchema });
+    expect(result.ok).toBe(true);
+  });
+
   it('should not treat INTERVAL WEEK unit as unknown column', () => {
     const keeperSchema = [
       {

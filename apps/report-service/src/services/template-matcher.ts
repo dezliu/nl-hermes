@@ -45,6 +45,7 @@ export class TemplateMatcher {
         id: t.id,
         name: t.name,
         scenarioDescription: t.scenarioDescription,
+        sqlBody: t.sqlBody,
         score: Number(score.toFixed(4)),
         type: req.mode,
       };

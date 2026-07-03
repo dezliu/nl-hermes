@@ -90,6 +90,19 @@ function extractSqlTables(sql: string): string[] {
   return [...extractSqlTablesAndAliases(sql).values()];
 }
 
+/** SELECT 子句中 AS 定义的列别名，允许在 ORDER BY / GROUP BY 中使用。 */
+function extractSelectAliases(sql: string): Set<string> {
+  const aliases = new Set<string>();
+  const stripped = sql.replace(/'[^']*'/g, ' ').replace(/"[^"]*"/g, ' ').replace(/`[^`]*`/g, ' ');
+  const selectMatch = stripped.match(/\bselect\b([\s\S]*?)\bfrom\b/i);
+  if (!selectMatch) return aliases;
+
+  for (const m of selectMatch[1]!.matchAll(/\bas\s+([a-z_][a-z0-9_]*)\b/gi)) {
+    aliases.add(m[1]!.toLowerCase());
+  }
+  return aliases;
+}
+
 type QualifiedRef = { tableOrAlias: string | null; column: string };
 
 function extractQualifiedRefs(sql: string): QualifiedRef[] {
@@ -148,13 +161,14 @@ export function checkColumnGrounding(input: {
   }
 
   const aliasMap = extractSqlTablesAndAliases(input.sql);
+  const selectAliases = extractSelectAliases(input.sql);
   const refs = extractQualifiedRefs(input.sql);
   const unknown: string[] = [];
   const misassigned: string[] = [];
 
   for (const ref of refs) {
     const { tableOrAlias, column } = ref;
-    if (SQL_KEYWORDS.has(column) || /^\d/.test(column)) continue;
+    if (SQL_KEYWORDS.has(column) || /^\d/.test(column) || selectAliases.has(column)) continue;
 
     const owners = schemaTables.filter((t) => schemaHasColumn(schema, t, column));
     if (owners.length === 0) {
@@ -195,12 +209,14 @@ function checkColumnGroundingLegacy(input: {
   if (known.size === 0) return { ok: true };
 
   const knownTables = collectKnownTables(input.schemaContext);
+  const selectAliases = extractSelectAliases(input.sql!);
   const refs = extractQualifiedRefs(input.sql!).map((r) => r.column);
   const unknown = [...new Set(
     refs.filter(
       (col) =>
         !known.has(col) &&
         !knownTables.has(col) &&
+        !selectAliases.has(col) &&
         !SQL_KEYWORDS.has(col) &&
         !/^\d/.test(col),
     ),

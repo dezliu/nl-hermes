@@ -59,6 +59,7 @@ export type TemplateMatchResult = {
   scenarioDescription: string;
   score: number;
   type: 'sql' | 'report';
+  sqlBody?: string;
 };
 
 export type ExecuteQueryRequest = {
