@@ -49,7 +49,7 @@ describe('report MCP adapter', () => {
       method: 'tools/list',
     });
     expect(res.status).toBe(200);
-    expect(res.body.result.tools).toHaveLength(4);
+    expect(res.body.result.tools).toHaveLength(8);
     expect(res.body.result.tools.map((t: { name: string }) => t.name)).toContain('match_template');
   });
 

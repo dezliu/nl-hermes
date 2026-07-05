@@ -50,4 +50,30 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     schema: z.object({ sql: z.string(), datasourceId: z.string() }),
     bindNodes: ['ValidateResult'],
   },
+  {
+    name: 'compose_dashboard_layout',
+    description: 'Generate dashboard layout spec (panels + charts) from query results.',
+    schema: z.object({
+      query: z.string(),
+      rows: z.array(z.record(z.unknown())),
+      rowCount: z.number(),
+      theme: z.enum(['dark', 'light']).optional(),
+    }),
+    bindNodes: ['AnalyzeReport'],
+  },
+  {
+    name: 'validate_dashboard_layout',
+    description: 'Validate dashboard grid layout and chart index bindings.',
+    schema: z.object({
+      layout: z.record(z.unknown()),
+      chartCount: z.number(),
+    }),
+    bindNodes: ['ComposeSpec'],
+  },
+  {
+    name: 'render_dashboard',
+    description: 'Render dashboard artifact with preview and share URLs.',
+    schema: z.object({ spec: z.record(z.unknown()) }),
+    bindNodes: ['RenderArtifact'],
+  },
 ];

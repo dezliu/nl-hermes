@@ -40,15 +40,79 @@ export function mountReportRoutes(app: import('express').Express, ctx: ReportCon
     const result = await ctx.report.createShare(req.body);
     const spec = ctx.report.getArtifactRenderer()?.getSpec(req.body.reportId);
     if (spec) {
-      ctx.publishedQueries.register({
+      const mainQuery = ctx.publishedQueries.register({
         reportId: spec.id,
         sqlTemplate: spec.sql,
         datasourceId: spec.datasourceId,
         authMode: 'token',
         shareToken: result.shareToken,
       });
+
+      if (spec.outputFormat === 'dashboard' && spec.layout) {
+        const updatedLayout = {
+          ...spec.layout,
+          panels: spec.layout.panels.map((panel) => {
+            if (panel.type === 'chart' || panel.type === 'kpi' || panel.type === 'table') {
+              const panelQuery = ctx.publishedQueries.register({
+                reportId: spec.id,
+                sqlTemplate: spec.sql,
+                datasourceId: spec.datasourceId,
+                authMode: 'token',
+                shareToken: result.shareToken,
+              });
+              return {
+                ...panel,
+                publishedQueryId: panelQuery.id,
+                refreshIntervalSec: panel.refreshIntervalSec ?? 60,
+              };
+            }
+            return panel;
+          }),
+        };
+        spec.layout = updatedLayout;
+        ctx.report.getArtifactRenderer()?.saveSpec(spec);
+      }
+
+      void mainQuery;
     }
     res.json(result);
+  }));
+
+  app.patch('/v1/reports/:id/layout', asyncHandler(async (req, res) => {
+    const renderer = ctx.report.getArtifactRenderer();
+    if (!renderer) {
+      res.status(503).json({ error: 'renderer_unavailable' });
+      return;
+    }
+    const id = param(req.params.id);
+    const spec = renderer.getSpec(id);
+    const artifact = renderer.getArtifact(id);
+    if (!spec || !artifact || spec.outputFormat !== 'dashboard') {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    if (spec.userId && spec.userId !== String(req.body.userId ?? '')) {
+      res.status(403).json({ error: 'forbidden' });
+      return;
+    }
+
+    const layout = req.body.layout as typeof spec.layout;
+    const charts = req.body.charts as typeof spec.charts | undefined;
+    if (!layout) {
+      res.status(400).json({ error: 'missing_layout' });
+      return;
+    }
+
+    const updatedSpec = {
+      ...spec,
+      layout,
+      charts: charts ?? spec.charts,
+    };
+    renderer.saveSpec(updatedSpec);
+
+    const gatewayBase = process.env.GATEWAY_PUBLIC_URL ?? 'http://localhost:4000';
+    const renderResult = await ctx.report.renderReport({ spec: updatedSpec, gatewayBaseUrl: gatewayBase });
+    res.json({ spec: updatedSpec, artifact: renderResult.artifact });
   }));
 
   app.get('/v1/reports/:id', asyncHandler(async (req, res) => {

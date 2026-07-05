@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Button, Space, Table, Typography, message } from 'antd';
 import type { ReportArtifact, ReportSpec } from '@hermes/contracts';
 import * as echarts from 'echarts';
+import { DashboardViewer } from './DashboardViewer';
 
 const { Text } = Typography;
 
@@ -40,6 +41,11 @@ export function ReportViewer({ reportSpec, reportArtifact }: ReportViewerProps) 
 
   const reportId = reportSpec?.id ?? reportArtifact?.reportId;
   const format = reportSpec?.outputFormat ?? reportArtifact?.format;
+
+  if (format === 'dashboard') {
+    return <DashboardViewer reportSpec={reportSpec} reportArtifact={reportArtifact} />;
+  }
+
   const artifactReady = reportArtifact?.status !== 'failed';
 
   const handlePreview = () => {

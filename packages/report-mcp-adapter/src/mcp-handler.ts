@@ -1,4 +1,6 @@
 import type { ReportMcpClient } from './report-client.js';
+import { createDefaultDashboardLayout, validateDashboardLayout } from '@hermes/contracts';
+import type { DashboardLayoutSpec, ReportSpec } from '@hermes/contracts';
 
 export type McpToolDefinition = {
   name: string;
@@ -60,6 +62,59 @@ export const REPORT_MCP_TOOLS: McpToolDefinition[] = [
         maxRows: { type: 'number' },
       },
       required: ['sql', 'datasourceId'],
+    },
+  },
+  {
+    name: 'compose_dashboard_layout',
+    description: 'Generate dashboard layout spec (panels + charts) from query results',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        rows: { type: 'array', items: { type: 'object' } },
+        rowCount: { type: 'number' },
+        theme: { type: 'string', enum: ['dark', 'light'] },
+      },
+      required: ['query', 'rows'],
+    },
+  },
+  {
+    name: 'render_dashboard',
+    description: 'Render dashboard artifact and return previewUrl',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spec: { type: 'object', description: 'ReportSpec with outputFormat=dashboard' },
+        gatewayBaseUrl: { type: 'string' },
+      },
+      required: ['spec'],
+    },
+  },
+  {
+    name: 'update_dashboard_layout',
+    description: 'Update dashboard panel layout or chart types',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        reportId: { type: 'string' },
+        userId: { type: 'string' },
+        layout: { type: 'object' },
+        charts: { type: 'array', items: { type: 'object' } },
+      },
+      required: ['reportId', 'userId', 'layout'],
+    },
+  },
+  {
+    name: 'execute_panel_query',
+    description: 'Execute a published query for dashboard panel refresh',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        publishedQueryId: { type: 'string' },
+        parameters: { type: 'object', additionalProperties: { type: 'string' } },
+        shareToken: { type: 'string' },
+      },
+      required: ['publishedQueryId'],
     },
   },
 ];
@@ -182,6 +237,61 @@ async function invokeTool(
         },
         traceId,
       );
+    case 'compose_dashboard_layout': {
+      const rows = (args.rows as Record<string, unknown>[]) ?? [];
+      const query = String(args.query ?? '数据大屏');
+      const recommendedCharts = [
+        { chartType: 'line' as const, chartConfig: { xField: 'x', yField: 'y', title: '趋势' } },
+        { chartType: 'bar' as const, chartConfig: { xField: 'x', yField: 'y', title: '对比' } },
+      ];
+      const layout = createDefaultDashboardLayout(recommendedCharts.length, query.slice(0, 48));
+      if (args.theme === 'light') layout.theme = 'light';
+      const validation = validateDashboardLayout(layout, recommendedCharts.length);
+      return {
+        title: query.slice(0, 48),
+        summary: `共 ${Number(args.rowCount ?? rows.length)} 行数据`,
+        recommendedCharts,
+        layout: validation.normalized ?? layout,
+      };
+    }
+    case 'render_dashboard': {
+      const spec = args.spec as ReportSpec;
+      if (spec.outputFormat !== 'dashboard') {
+        throw new Error('spec.outputFormat must be dashboard');
+      }
+      return client.renderReport(
+        {
+          spec,
+          gatewayBaseUrl: args.gatewayBaseUrl as string | undefined,
+        },
+        traceId,
+      );
+    }
+    case 'update_dashboard_layout':
+      return client.updateDashboardLayout(
+        {
+          reportId: String(args.reportId),
+          userId: String(args.userId),
+          layout: args.layout as DashboardLayoutSpec,
+          charts: args.charts as ReportSpec['charts'] | undefined,
+        },
+        traceId,
+      );
+    case 'execute_panel_query': {
+      const queryId = String(args.publishedQueryId);
+      const baseUrl = process.env.REPORT_SERVICE_URL ?? 'http://localhost:4030';
+      const res = await fetch(`${baseUrl}/v1/published-queries/${queryId}/data`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(args.shareToken ? { 'x-share-token': String(args.shareToken) } : {}),
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`panel query failed: ${res.status} ${text}`);
+      }
+      return res.json();
+    }
     default:
       throw new Error(`Unknown tool: ${name}`);
   }

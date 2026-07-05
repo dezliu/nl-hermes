@@ -1,4 +1,5 @@
 import type { LlmProvider } from './types.js';
+import { createDefaultDashboardLayout } from '@hermes/contracts';
 
 const JAILBREAK_PATTERNS = [/ignore\s+(all\s+)?previous\s+instructions/i, /you\s+are\s+now/i, /扮演/i, /忽略系统/];
 
@@ -154,6 +155,44 @@ export function createMockLlmProvider(): LlmProvider {
           ? [{ chartType: chartType as 'line' | 'bar' | 'table', chartConfig: { xField, yField } }]
           : [{ chartType: 'table' as const, chartConfig: { xField, yField } }],
         sections,
+      };
+    },
+
+    async analyzeDashboardLayout({ query, rows, rowCount, chartType, chartConfig }) {
+      const xField = chartConfig?.xField ?? 'dt';
+      const yField = chartConfig?.yField ?? 'cnt';
+      const title = query.slice(0, 48) || '数据大屏';
+      const summary = `针对「${query}」共返回 ${rowCount} 行数据。`;
+      const insights = rowCount > 0
+        ? [`共 ${rowCount} 条记录`, `主指标字段：${yField}`]
+        : ['当前条件下无数据'];
+
+      const recommendedCharts = [
+        {
+          chartType: (chartType as 'line' | 'bar' | 'table' | 'pie') ?? 'line',
+          chartConfig: { xField, yField, title: '趋势图' },
+        },
+        {
+          chartType: 'bar' as const,
+          chartConfig: { xField, yField, title: '对比图' },
+        },
+      ];
+
+      const layout = createDefaultDashboardLayout(recommendedCharts.length, title);
+      const numericField = rows[0]
+        ? Object.keys(rows[0]).find((k) => typeof rows[0][k] === 'number') ?? yField
+        : yField;
+      layout.panels = layout.panels.map((p) =>
+        p.type === 'kpi' ? { ...p, kpiField: numericField, title: '核心指标' } : p,
+      );
+
+      return {
+        title,
+        summary,
+        insights,
+        dataSources: ['schema_context'],
+        recommendedCharts,
+        layout,
       };
     },
   };

@@ -13,6 +13,7 @@ import type {
   ScoreRequest,
   ScoreResponse,
   TemplateMatchRequest,
+  UpdateDashboardLayoutRequest,
   UserPermissions,
   ValidateSqlRequest,
   ValidateSqlResponse,
@@ -87,6 +88,12 @@ export class ReportClient {
   createShare(req: ReportShareRequest): Promise<ReportShareResponse> {
     return postJson('/v1/reports/share', req, this.opts);
   }
+
+  updateDashboardLayout(
+    req: UpdateDashboardLayoutRequest,
+  ): Promise<{ spec: ReportSpec; artifact: ReportRenderResponse['artifact'] }> {
+    return patchJson(`/v1/reports/${req.reportId}/layout`, req, this.opts);
+  }
 }
 
 export function createRagClient(baseUrl = process.env.RAG_SERVICE_URL ?? 'http://localhost:4020', traceId?: string) {
@@ -102,6 +109,19 @@ export function createReportClient(
 
 async function getJson<T>(url: string, opts: ClientOptions): Promise<T> {
   const res = await fetch(url, { headers: buildHeaders(opts) });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function patchJson<T>(url: string, body: unknown, opts: ClientOptions): Promise<T> {
+  const res = await fetch(`${opts.baseUrl}${url}`, {
+    method: 'PATCH',
+    headers: buildHeaders(opts),
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`HTTP ${res.status}: ${text}`);

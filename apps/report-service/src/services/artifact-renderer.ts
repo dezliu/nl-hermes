@@ -10,6 +10,7 @@ import type {
 import { composeAllEchartsOptions } from './chart-composer.js';
 import type { ReportStorageClient } from './storage-client.js';
 import { buildReportWebHtml } from '../templates/report-web.js';
+import { buildDashboardWebHtml } from '../templates/dashboard-web.js';
 
 const RENDER_WORKER_URL = process.env.RENDER_WORKER_URL ?? 'http://localhost:4060';
 const RENDER_WORKER_HINT =
@@ -66,6 +67,31 @@ export class ArtifactRenderer {
     }
 
     try {
+      if (spec.outputFormat === 'dashboard') {
+        if (!spec.layout) {
+          throw new Error('dashboard 格式缺少 layout 配置');
+        }
+        const html = buildDashboardWebHtml(spec, echartsOptions);
+        const storageKey = `reports/${spec.userId ?? 'anonymous'}/${spec.id}/dashboard/index.html`;
+        await this.storage.put(storageKey, html, 'text/html');
+        const artifact: ReportArtifact = {
+          reportId: spec.id,
+          format: 'dashboard',
+          status: 'ready',
+          storageKey,
+          previewUrl: `${gatewayBase}/api/reports/${spec.id}/preview`,
+          downloadUrl: `${gatewayBase}/api/reports/${spec.id}/download`,
+          inlinePayload: {
+            charts: spec.charts,
+            rows: spec.data.rows,
+            echartsOptions,
+            layout: spec.layout,
+          },
+        };
+        this.artifacts.set(spec.id, artifact);
+        return artifact;
+      }
+
       if (spec.outputFormat === 'web') {
         const html = buildReportWebHtml(spec, echartsOptions);
         const storageKey = `reports/${spec.userId ?? 'anonymous'}/${spec.id}/web/index.html`;
@@ -158,9 +184,12 @@ export class ArtifactRenderer {
     const artifact = this.artifacts.get(reportId);
     if (!spec || !artifact) return null;
 
-    if (artifact.format === 'inline') {
+    if (artifact.format === 'inline' || artifact.format === 'dashboard') {
       const echartsOptions = composeAllEchartsOptions(spec.charts, spec.data.rows);
-      const html = buildReportWebHtml(spec, echartsOptions);
+      const html =
+        artifact.format === 'dashboard' && spec.layout
+          ? buildDashboardWebHtml(spec, echartsOptions)
+          : buildReportWebHtml(spec, echartsOptions);
       return { contentType: 'text/html; charset=utf-8', body: Buffer.from(html, 'utf-8') };
     }
 
@@ -187,7 +216,7 @@ export class ArtifactRenderer {
     const filename =
       artifact.format === 'word'
         ? `${spec.title.slice(0, 32).replace(/[^\w\u4e00-\u9fa5-]+/g, '_') || 'report'}.docx`
-        : artifact.format === 'web'
+        : artifact.format === 'web' || artifact.format === 'dashboard'
           ? `${spec.title.slice(0, 32).replace(/[^\w\u4e00-\u9fa5-]+/g, '_') || 'report'}.html`
           : 'report.json';
 

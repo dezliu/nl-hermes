@@ -2,8 +2,12 @@ import type {
   ExecuteQueryRequest,
   ExecuteQueryResponse,
   ReportGenerateRequest,
+  ReportRenderRequest,
+  ReportRenderResponse,
+  ReportSpec,
   TemplateMatchRequest,
   TemplateMatchResult,
+  UpdateDashboardLayoutRequest,
   ValidateSqlRequest,
   ValidateSqlResponse,
 } from '@hermes/contracts';
@@ -42,6 +46,40 @@ export class ReportMcpClient {
 
   async validateSql(input: ValidateSqlRequest, traceId?: string): Promise<ValidateSqlResponse> {
     return this.post<ValidateSqlResponse>('/v1/query/validate', input, traceId);
+  }
+
+  async renderReport(input: ReportRenderRequest, traceId?: string): Promise<ReportRenderResponse> {
+    return this.post<ReportRenderResponse>('/v1/reports/render', input, traceId);
+  }
+
+  async updateDashboardLayout(
+    input: UpdateDashboardLayoutRequest,
+    traceId?: string,
+  ): Promise<{ spec: ReportSpec; artifact: ReportRenderResponse['artifact'] }> {
+    return this.patch(`/v1/reports/${input.reportId}/layout`, input, traceId);
+  }
+
+  private async patch<T>(path: string, body: unknown, traceId?: string): Promise<T> {
+    const headers = withServiceAuth(
+      {
+        'Content-Type': 'application/json',
+        ...(traceId ? { 'x-trace-id': traceId } : {}),
+      },
+      this.serviceName,
+    );
+
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`report-service ${path} failed: ${res.status} ${text}`);
+    }
+
+    return (await res.json()) as T;
   }
 
   private async post<T>(path: string, body: unknown, traceId?: string): Promise<T> {

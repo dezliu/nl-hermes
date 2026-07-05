@@ -9,7 +9,7 @@ const REPORT_SERVICE_URL = process.env.REPORT_SERVICE_URL ?? 'http://localhost:4
 
 const typeDefs = `#graphql
   enum GenerationMode { sql report }
-  enum ReportOutputFormat { inline web word }
+  enum ReportOutputFormat { inline web word dashboard }
   enum FeedbackRating { up down }
 
   type ChatSession {
@@ -426,6 +426,18 @@ async function main() {
     });
     const json = await upstream.json();
     res.status(upstream.status).json(json);
+  });
+
+  app.patch('/api/dashboards/:id/layout', corsMiddleware, express.json(), async (req, res) => {
+    try {
+      const data = await orchPatch<{ spec: unknown; artifact: unknown }>(
+        `/v1/dashboards/${req.params.id}/layout`,
+        req.body,
+      );
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: 'update_failed', message: err instanceof Error ? err.message : '更新布局失败' });
+    }
   });
 
   app.listen(PORT, () => {

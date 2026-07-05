@@ -6,7 +6,7 @@ export class ReportArtifactModel extends BaseModel {
   messageId?: string | null;
   userId!: string;
   specJson!: Record<string, unknown>;
-  outputFormat!: 'inline' | 'web' | 'word';
+  outputFormat!: 'inline' | 'web' | 'word' | 'dashboard';
   storageKey?: string | null;
   shareToken?: string | null;
   shareExpiresAt?: string | null;

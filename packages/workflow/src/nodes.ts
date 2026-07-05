@@ -1,4 +1,5 @@
 import type { RetrieveResult, ReportChartSpec, ReportSpec, TemplateMatchResult } from '@hermes/contracts';
+import { validateDashboardLayout, createDefaultDashboardLayout } from '@hermes/contracts';
 import { randomUUID } from 'node:crypto';
 import { formatUnknownColumnFeedback } from '@hermes/shared';
 import type { WorkflowGraphState } from './state.js';
@@ -597,9 +598,42 @@ export async function analyzeReportNode(state: WorkflowGraphState, deps: Workflo
   emitStep(deps, '分析报表数据');
   deps.emit({ type: 'chunk', content: '正在综合分析数据…\n' });
 
+  const outputFormat = state.outputFormat ?? 'inline';
+
+  if (outputFormat === 'dashboard') {
+    const dashboardAnalysis = await deps.llm.analyzeDashboardLayout({
+      query: state.query,
+      sql: state.generatedSql,
+      rows: rows.slice(0, 50),
+      rowCount,
+      schemaContext: state.schemaContext,
+      businessKnowledge: state.businessKnowledge,
+      chartType: state.chartConfig?.chartType ? String(state.chartConfig.chartType) : undefined,
+      chartConfig: state.chartConfig as Record<string, string> | undefined,
+    });
+
+    const chartCount = dashboardAnalysis.recommendedCharts.length;
+    const validation = validateDashboardLayout(dashboardAnalysis.layout, chartCount);
+    const layout = validation.normalized ?? dashboardAnalysis.layout ?? createDefaultDashboardLayout(chartCount, dashboardAnalysis.title);
+
+    return {
+      reportAnalysis: {
+        title: dashboardAnalysis.title,
+        summary: dashboardAnalysis.summary,
+        insights: dashboardAnalysis.insights,
+        dataSources: dashboardAnalysis.dataSources,
+        caveats: dashboardAnalysis.caveats,
+        recommendedCharts: dashboardAnalysis.recommendedCharts,
+        layout,
+      },
+      summaryText: dashboardAnalysis.summary,
+      currentNode: 'AnalyzeReport',
+    };
+  }
+
   const analysis = await deps.llm.analyzeReportData({
     query: state.query,
-    outputFormat: state.outputFormat ?? 'inline',
+    outputFormat,
     sql: state.generatedSql,
     rows: rows.slice(0, 50),
     rowCount,
@@ -647,6 +681,7 @@ export async function composeSpecNode(state: WorkflowGraphState, deps: WorkflowD
     })) ?? [{ chartType: primaryChartType, chartConfig: primaryConfig }];
 
   const reportId = state.reportSpec?.id ?? randomUUID();
+  const outputFormat = state.outputFormat ?? 'inline';
   const spec: ReportSpec = {
     id: reportId,
     title: analysis?.title ?? state.query.slice(0, 48),
@@ -667,9 +702,17 @@ export async function composeSpecNode(state: WorkflowGraphState, deps: WorkflowD
       caveats: analysis?.caveats,
       sections: analysis?.sections,
     },
-    outputFormat: state.outputFormat ?? 'inline',
+    outputFormat,
+    layout: outputFormat === 'dashboard' ? analysis?.layout : undefined,
     createdAt: new Date().toISOString(),
   };
+
+  if (outputFormat === 'dashboard' && spec.layout) {
+    const validation = validateDashboardLayout(spec.layout, charts.length);
+    if (validation.normalized) {
+      spec.layout = validation.normalized;
+    }
+  }
 
   return { reportSpec: spec, currentNode: 'ComposeSpec' };
 }
@@ -687,6 +730,8 @@ export async function renderArtifactNode(state: WorkflowGraphState, deps: Workfl
     deps.emit({ type: 'chunk', content: '正在生成网页报告…\n' });
   } else if (format === 'word') {
     deps.emit({ type: 'chunk', content: '正在生成 Word 文档…\n' });
+  } else if (format === 'dashboard') {
+    deps.emit({ type: 'chunk', content: '正在生成数据大屏…\n' });
   }
 
   emitStep(deps, '渲染报表', format);

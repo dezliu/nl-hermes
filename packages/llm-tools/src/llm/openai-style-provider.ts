@@ -246,7 +246,9 @@ export function createOpenAiStyleLlmProvider(
             ? '输出 Word 文档适用的章节结构 sections。'
             : input.outputFormat === 'web'
               ? '输出网页报告适用的章节结构 sections。'
-              : '';
+              : input.outputFormat === 'dashboard'
+                ? '输出多图表 recommendedCharts，不需要 sections。'
+                : '';
         const messages = [
           {
             role: 'system' as const,
@@ -289,6 +291,57 @@ export function createOpenAiStyleLlmProvider(
       } catch (err) {
         console.warn('[llm] analyzeReportData fallback to mock:', err instanceof Error ? err.message : err);
         return fallback.analyzeReportData(input);
+      }
+    },
+
+    async analyzeDashboardLayout(input) {
+      try {
+        const messages = [
+          {
+            role: 'system' as const,
+            content:
+              '你是数据大屏布局助手。仅返回 JSON：{"title":"string","summary":"string","insights":["string"],"dataSources":["string"],"caveats":["string"],"recommendedCharts":[{"chartType":"line"|"bar"|"table"|"pie","chartConfig":{"xField":"","yField":"","title":""}}],"layout":{"canvas":{"width":1920,"height":1080},"theme":"dark","header":{"title":"","showClock":true},"panels":[{"id":"string","type":"chart"|"kpi"|"table"|"text","title":"string","grid":{"x":0,"y":0,"w":3,"h":2},"chartIndex":0,"kpiField":"string","textContent":"string"}]}}。约束：12列栅格(x+w<=12)，至少1个kpi和1个chart，chartIndex从0递增且不越界，panel不重叠。',
+          },
+          {
+            role: 'user' as const,
+            content: [
+              `用户问题: ${input.query}`,
+              `SQL: ${input.sql ?? ''}`,
+              `行数: ${input.rowCount}`,
+              `数据样例:\n${JSON.stringify(input.rows.slice(0, 10))}`,
+              `当前图表: ${input.chartType ?? 'table'} ${JSON.stringify(input.chartConfig ?? {})}`,
+            ].join('\n\n'),
+          },
+        ];
+        const content = await completeJson(client, messages);
+        const parsed = extractJson(content) as {
+          title?: string;
+          summary?: string;
+          insights?: string[];
+          dataSources?: string[];
+          caveats?: string[];
+          recommendedCharts?: Array<{
+            chartType: 'line' | 'bar' | 'table' | 'pie';
+            chartConfig: Record<string, string>;
+          }>;
+          layout?: import('@hermes/contracts').DashboardLayoutSpec;
+        };
+        const charts = parsed.recommendedCharts?.length
+          ? parsed.recommendedCharts
+          : [{ chartType: 'table' as const, chartConfig: { xField: 'x', yField: 'y' } }];
+        const layout = parsed.layout ?? (await fallback.analyzeDashboardLayout(input)).layout;
+        return {
+          title: parsed.title ?? input.query.slice(0, 48),
+          summary: parsed.summary ?? `共 ${input.rowCount} 行数据。`,
+          insights: parsed.insights ?? [],
+          dataSources: parsed.dataSources ?? [],
+          caveats: parsed.caveats,
+          recommendedCharts: charts,
+          layout,
+        };
+      } catch (err) {
+        console.warn('[llm] analyzeDashboardLayout fallback to mock:', err instanceof Error ? err.message : err);
+        return fallback.analyzeDashboardLayout(input);
       }
     },
   };

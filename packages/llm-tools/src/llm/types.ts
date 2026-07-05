@@ -61,7 +61,7 @@ export type LlmProvider = {
 
   analyzeReportData(input: {
     query: string;
-    outputFormat: 'inline' | 'web' | 'word';
+    outputFormat: 'inline' | 'web' | 'word' | 'dashboard';
     sql?: string;
     rows: Record<string, unknown>[];
     rowCount: number;
@@ -80,6 +80,28 @@ export type LlmProvider = {
       chartConfig: Record<string, string>;
     }>;
     sections?: { title: string; body: string; chartIndex?: number }[];
+  }>;
+
+  analyzeDashboardLayout(input: {
+    query: string;
+    sql?: string;
+    rows: Record<string, unknown>[];
+    rowCount: number;
+    schemaContext: unknown[];
+    businessKnowledge: unknown[];
+    chartType?: string;
+    chartConfig?: Record<string, string>;
+  }): Promise<{
+    title: string;
+    summary: string;
+    insights: string[];
+    dataSources: string[];
+    caveats?: string[];
+    recommendedCharts: Array<{
+      chartType: 'line' | 'bar' | 'table' | 'pie';
+      chartConfig: Record<string, string>;
+    }>;
+    layout: import('@hermes/contracts').DashboardLayoutSpec;
   }>;
 };
 

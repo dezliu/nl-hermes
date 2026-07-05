@@ -1,16 +1,46 @@
 # 灵析敏捷看板
 
-> 最后更新：2026-07-03 16:50
+> 最后更新：2026-07-04 23:55
 
 ## 进行中
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| README 模块说明梳理 | ✅ 已完成 | 补充 apps/packages/migrations 职责、依赖图、工作流节点与 REST 路由 |
-| 全量自动化测试报告 | ✅ 已完成 | `test_report.md` — 215 用例全通过，耗时 8.19s |
-| 三端页面样式对齐 mockup | ✅ 已完成 | Admin / 监控 / 用户端视觉与 docs/mockup 对齐 |
+| 大屏生成功能（dashboard） | ✅ 已完成 | LLM 布局 + 渲染 + 分享 + 简单编辑器全链路 |
 
-## 本次交付（2026-07-03 · README 模块梳理）
+## 本次交付（2026-07-04 · 数据大屏生成）
+
+### 已完成
+
+- [x] **契约扩展**：`DashboardLayoutSpec` / `DashboardPanelSpec`，`outputFormat=dashboard`
+- [x] **LLM**：`analyzeDashboardLayout` + workflow `analyzeReportNode` / `composeSpecNode` 分支
+- [x] **渲染**：`dashboard-web.ts` 全屏 HTML + `artifact-renderer` dashboard 分支
+- [x] **分享刷新**：分享时为 chart/kpi panel 注册 `published_queries`
+- [x] **MCP**：`compose_dashboard_layout` / `render_dashboard` / `update_dashboard_layout` / `execute_panel_query`
+- [x] **前端**：`DashboardViewer`、对话内「数据大屏」选项、`/dashboard/[id]` 全屏、`/dashboard/[id]/edit` 编辑器
+- [x] **API**：`PATCH /api/dashboards/:id/layout`（gateway → orchestrator → report-service）
+- [x] **测试**：layout 校验 5 例、workflow dashboard 节点 2 例、MCP tools 8 个
+
+### 涉及文件
+
+- `packages/contracts/src/index.ts`、`dashboard-layout.ts`
+- `packages/llm-tools/src/llm/types.ts`、`mock-provider.ts`、`openai-style-provider.ts`、`registry.ts`、`clients.ts`
+- `packages/workflow/src/nodes.ts`、`state.ts`、`dashboard.test.ts`
+- `apps/report-service/src/templates/dashboard-web.ts`、`artifact-renderer.ts`、`routes/index.ts`
+- `apps/orchestrator/src/routes/report-routes.ts`、`repositories/report-artifact-repository.ts`
+- `apps/gateway-api/src/index.ts`
+- `apps/web-user/components/DashboardViewer.tsx`、`ReportViewer.tsx`、`app/page.tsx`
+- `apps/web-user/app/dashboard/[id]/page.tsx`、`app/dashboard/[id]/edit/page.tsx`
+- `packages/report-mcp-adapter/src/mcp-handler.ts`、`report-client.ts`
+- `migrations/chat/migrations/20260704000001_dashboard_output_format.ts`
+
+### 待验证
+
+- [ ] 本地 `make dev` 后选择「数据大屏」生成并全屏预览
+- [ ] 分享链接公开访问 + panel 自动刷新
+- [ ] 编辑器拖拽保存后布局持久化
+
+## 历史交付（2026-07-03 · README 模块梳理）
 
 ### 已完成
 

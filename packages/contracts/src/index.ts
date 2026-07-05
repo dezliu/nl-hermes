@@ -98,7 +98,58 @@ export type ValidateSqlResponse = {
 };
 
 /** Report artifact contracts */
-export type ReportOutputFormat = 'inline' | 'web' | 'word';
+export type ReportOutputFormat = 'inline' | 'web' | 'word' | 'dashboard';
+
+export type DashboardTheme = 'dark' | 'light';
+
+export type DashboardPanelType = 'chart' | 'kpi' | 'table' | 'text';
+
+export type DashboardGridPosition = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type DashboardPanelSpec = {
+  id: string;
+  type: DashboardPanelType;
+  title?: string;
+  grid: DashboardGridPosition;
+  chartIndex?: number;
+  kpiField?: string;
+  kpiFormat?: 'number' | 'currency' | 'percent';
+  textContent?: string;
+  publishedQueryId?: string;
+  refreshIntervalSec?: number;
+};
+
+export type DashboardLayoutSpec = {
+  canvas: { width: number; height: number };
+  theme: DashboardTheme;
+  panels: DashboardPanelSpec[];
+  header?: { title: string; subtitle?: string; showClock?: boolean };
+};
+
+export type DashboardAnalysisResult = {
+  title: string;
+  summary: string;
+  insights: string[];
+  dataSources: string[];
+  caveats?: string[];
+  recommendedCharts?: Array<{
+    chartType: ReportChartType;
+    chartConfig: Record<string, string>;
+  }>;
+  layout: DashboardLayoutSpec;
+};
+
+export type UpdateDashboardLayoutRequest = {
+  reportId: string;
+  userId: string;
+  layout: DashboardLayoutSpec;
+  charts?: ReportChartSpec[];
+};
 
 export type ReportChartType = 'line' | 'bar' | 'table' | 'pie';
 
@@ -137,6 +188,7 @@ export type ReportSpec = {
   charts: ReportChartSpec[];
   narrative: ReportNarrative;
   outputFormat: ReportOutputFormat;
+  layout?: DashboardLayoutSpec;
   createdAt: string;
 };
 
@@ -156,6 +208,7 @@ export type ReportArtifact = {
     charts: unknown[];
     rows: Record<string, unknown>[];
     echartsOptions?: unknown[];
+    layout?: DashboardLayoutSpec;
   };
 };
 
@@ -471,3 +524,11 @@ export type UpsertEvalCaseRequest = {
   expectedPoints?: string;
   sortOrder?: number;
 };
+
+export {
+  DASHBOARD_GRID_COLS,
+  validateDashboardLayout,
+  createDefaultDashboardLayout,
+  type DashboardLayoutValidationError,
+  type DashboardLayoutValidationResult,
+} from './dashboard-layout.js';

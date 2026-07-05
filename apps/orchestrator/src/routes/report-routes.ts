@@ -2,6 +2,8 @@ import type { Express, Request, Response } from 'express';
 import { createReportClient } from '@hermes/llm-tools';
 import type { ReportArtifactRepository } from '../repositories/report-artifact-repository.js';
 
+const REPORT_SERVICE_URL = process.env.REPORT_SERVICE_URL ?? 'http://localhost:4030';
+
 export function mountReportRoutes(app: Express, repo: ReportArtifactRepository): void {
   app.get('/v1/reports/:id', async (req, res) => {
     const userId = String(req.query.userId ?? '');
@@ -48,5 +50,36 @@ export function mountReportRoutes(app: Express, repo: ReportArtifactRepository):
       return;
     }
     res.json({ spec: row.spec, artifact: row.artifact });
+  });
+
+  app.patch('/v1/dashboards/:id/layout', async (req, res) => {
+    const userId = String(req.body.userId ?? '');
+    const row = await repo.getById(req.params.id, userId);
+    if (!row) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+
+    try {
+      const report = createReportClient(REPORT_SERVICE_URL);
+      const result = await report.updateDashboardLayout({
+        reportId: req.params.id,
+        userId,
+        layout: req.body.layout,
+        charts: req.body.charts,
+      });
+      await repo.updateLayout({
+        id: req.params.id,
+        userId,
+        spec: result.spec,
+        artifact: result.artifact,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({
+        error: (err as { code?: string }).code ?? 'update_failed',
+        message: err instanceof Error ? err.message : '更新布局失败',
+      });
+    }
   });
 }

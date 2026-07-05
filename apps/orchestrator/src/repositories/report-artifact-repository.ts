@@ -56,6 +56,33 @@ export class ReportArtifactRepository {
     };
   }
 
+  async updateLayout(input: {
+    id: string;
+    userId: string;
+    spec: ReportSpec;
+    artifact: ReportArtifact;
+  }): Promise<boolean> {
+    const existing = await this.getById(input.id, input.userId);
+    if (!existing) return false;
+
+    if (!this.enabled) {
+      this.memory.set(input.id, {
+        id: input.id,
+        messageId: existing.messageId,
+        userId: input.userId,
+        spec: input.spec,
+        artifact: input.artifact,
+      });
+      return true;
+    }
+
+    await ReportArtifactModel.query().findById(input.id).patch({
+      specJson: input.spec as unknown as Record<string, unknown>,
+      artifactJson: input.artifact as unknown as Record<string, unknown>,
+    });
+    return true;
+  }
+
   async getByShareToken(shareToken: string) {
     if (!this.enabled) {
       for (const row of this.memory.values()) {

@@ -70,7 +70,7 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
 
 export default function ChatPage() {
   const [mode, setMode] = useState<'sql' | 'report'>('sql');
-  const [outputFormat, setOutputFormat] = useState<'inline' | 'web' | 'word'>('inline');
+  const [outputFormat, setOutputFormat] = useState<'inline' | 'web' | 'word' | 'dashboard'>('inline');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -635,6 +635,7 @@ export default function ChatPage() {
                   { value: 'inline', label: '内嵌图表' },
                   { value: 'web', label: '网页报告' },
                   { value: 'word', label: 'Word 文档' },
+                  { value: 'dashboard', label: '数据大屏' },
                 ]}
               />
             )}
