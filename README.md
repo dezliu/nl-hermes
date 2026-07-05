@@ -1,6 +1,6 @@
 # 灵析 (LingAnalytics) / Hermes
 
-智能数据透视平台 — 用户通过自然语言提问，系统生成 SQL 或可视化报表。
+智能数据透视平台 — 用户通过自然语言提问，系统生成 SQL、可视化报表或全屏数据大屏（可分享、可编辑布局）。
 
 ## 架构概览
 
@@ -272,10 +272,10 @@ flowchart TB
 
 | 模块 | 包名 | 端口 | 职责 |
 |------|------|------|------|
-| **gateway-api** | `@hermes/gateway-api` | 4000 | GraphQL 统一入口：对话启动/流式 SSE、会话与模板查询、报表预览代理；转发至 orchestrator / report-service |
+| **gateway-api** | `@hermes/gateway-api` | 4000 | GraphQL 统一入口：对话启动/流式 SSE、会话与模板查询；REST 代理报表/大屏产物加载（`GET /api/reports/:id`）、预览/下载/分享、大屏布局保存（`PATCH /api/dashboards/:id/layout`，含 report-service 未命中时 orchestrator 回退）；转发至 orchestrator / report-service |
 | **orchestrator** | `@hermes/orchestrator` | 4010 | 对话编排：LangGraph 工作流执行、生成锁与中断、会话/反馈/模板推荐；REST `/v1/chat/*` |
 | **rag-service** | `@hermes/rag-service` | 4020 | 混合检索：BM25（OpenSearch）+ 向量（Qdrant）RRF 融合与重排；索引重建 `/v1/index/rebuild` |
-| **report-service** | `@hermes/report-service` | 4030 | SQL 执行与校验、报表生成/渲染/分享、模板匹配、已发布查询 API |
+| **report-service** | `@hermes/report-service` | 4030 | SQL 执行与校验、报表生成/渲染/分享、模板匹配、已发布查询 API；`outputFormat=dashboard` 时由本服务直接渲染 ECharts 多 panel 全屏 HTML（不经过 render-worker） |
 | **eval-service** | `@hermes/eval-service` | 4040 | 离线评估：评估集/用例 CRUD、批量运行与结果汇总 |
 | **metadata-service** | `@hermes/metadata-service` | 4050 | 元数据中枢：数据源、表字段、Prompt、模板、业务知识、生成闭环、监控指标与告警 |
 | **render-worker** | —（Python FastAPI） | 4060 | Word DOCX 渲染与 matplotlib 图表嵌入，供 report-service 调用 |
@@ -292,6 +292,7 @@ flowchart TB
 | `/v1/feedback/*` | 消息点赞/点踩，联动生成闭环 |
 | `/v1/templates/*` | 模板推荐与应用 |
 | `/v1/reports/*` | 报表产物查询与下载代理 |
+| `PATCH /v1/dashboards/:id/layout` | 大屏布局更新（转发 report-service） |
 
 **metadata-service 主要能力**
 
@@ -318,6 +319,17 @@ SecurityGuard → LoadContext → TemplateMatch → IntentClassify
   → StreamOutput / Clarify / DirectAnswer / Refuse
 ```
 
+`outputFormat=dashboard` 时，AnalyzeReport → ComposeSpec → RenderArtifact 走大屏分支：
+
+```mermaid
+flowchart LR
+  ExecuteReport --> AnalyzeReport
+  AnalyzeReport -->|"outputFormat=dashboard"| AnalyzeDashboardLayout
+  AnalyzeDashboardLayout --> ComposeSpec
+  ComposeSpec --> RenderArtifact
+  RenderArtifact -->|"dashboard HTML"| ReportService
+```
+
 | 节点 | 作用 |
 |------|------|
 | SecurityGuard | 输入安全校验，拦截越权或恶意 prompt |
@@ -328,8 +340,10 @@ SecurityGuard → LoadContext → TemplateMatch → IntentClassify
 | GenerateSQL / GenerateReport | LLM 生成 SQL 或报表规格 |
 | ValidateResult | EXPLAIN / 语法校验 |
 | ExecuteReport | 执行查询并取数 |
+| AnalyzeReport | 分析报表结构；`outputFormat=dashboard` 时调用 `analyzeDashboardLayout` 产出 `DashboardLayoutSpec` |
+| ComposeSpec | 组装 `ReportSpec`；dashboard 模式将 `layout` 写入规格 |
 | GroundingCheck | SQL 与 schema 对齐校验 |
-| RenderArtifact | 调用 report-service 产出 Web / Word 报表 |
+| RenderArtifact | 调用 report-service 产出 Web / Word / 数据大屏 HTML（大屏不经 render-worker） |
 
 配套包 **`@hermes/llm-tools`** 提供 LangChain Tool 注册、RAG/Report/Metadata HTTP 客户端与 LLM Provider 工厂（支持 Mock / OpenAI 兼容接口）。
 
@@ -337,7 +351,7 @@ SecurityGuard → LoadContext → TemplateMatch → IntentClassify
 
 | 模块 | 包名 | 端口 | 页面与功能 |
 |------|------|------|------------|
-| **web-user** | `@hermes/web-user` | 3001 | 自然语言对话、SQL/报表结果展示、ReportViewer（Web/Word 预览与下载） |
+| **web-user** | `@hermes/web-user` | 3001 | 自然语言对话、SQL/报表结果展示；输出格式含 inline / Web / Word / **数据大屏**；`ReportViewer` 与 `DashboardViewer`；全屏 `/dashboard/[id]`、布局编辑 `/dashboard/[id]/edit`（react-grid-layout）；分享复用 shareToken + published_queries 按 panel 刷新 |
 | **web-admin** | `@hermes/web-admin` | 3002 | 管理后台（`/admin`）：数据源、元数据、业务知识、模板、生成闭环、Prompt、检索测试、离线评估、告警 |
 | **web-monitor** | `@hermes/web-monitor` | 3003 | 监控看板：KPI 卡片、时序图表、告警横幅（对接 metadata-service 监控 API） |
 
@@ -348,13 +362,13 @@ SecurityGuard → LoadContext → TemplateMatch → IntentClassify
 | 包名 | 职责 |
 |------|------|
 | `@hermes/shared` | 日志、traceId、鉴权中间件、CORS、Express 服务脚手架、`loadEnv` |
-| `@hermes/contracts` | 微服务间请求/响应类型（检索、SQL 执行、报表、评估、闭环等） |
+| `@hermes/contracts` | 微服务间请求/响应类型（检索、SQL 执行、报表、评估、闭环等）；含 `DashboardLayoutSpec` / `DashboardPanelSpec` 与 `ReportOutputFormat` 的 `dashboard` 值（见 `dashboard-layout.ts`） |
 | `@hermes/orm-schemas` | Objection.js 模型与 Knex 连接（meta / chat / eval 三库） |
 | `@hermes/workflow` | LangGraph 图定义、节点实现、checkpoint、grounding |
 | `@hermes/llm-tools` | Tool 定义、服务客户端、LLM Provider |
 | `@hermes/ui-shared` | 前端共享布局与主题 |
 | `@hermes/observability` | Langfuse 追踪、性能计时、Prompt 脱敏 |
-| `@hermes/report-mcp-adapter` | 报表 MCP 适配层（可选，默认 :4031） |
+| `@hermes/report-mcp-adapter` | 报表 MCP 适配层（可选，默认 :4031）；含 `compose_dashboard_layout` / `render_dashboard` / `update_dashboard_layout` / `execute_panel_query` 等大屏工具 |
 | `@hermes/contract-tests` | 工作流与各服务契约回归测试 |
 | `@hermes/performance` | RAG 延迟、首 token、评估吞吐等性能预算测试 |
 
@@ -413,6 +427,7 @@ docker/
 - [业务需求 PRD](docs/PRD_业务需求文档_v1.0.md)
 - [AI 协作规范](AGENTS.md)
 - [架构设计与迭代 Plan](docs/plans/README.md)
+- [数据大屏生成功能设计](docs/plans/大屏生成功能设计_09d40cc5.plan.md)
 
 ## 演示
 ### Admin
@@ -420,6 +435,10 @@ docker/
 
 ### User
 <img width="1280" height="720" alt="user" src="https://github.com/user-attachments/assets/32028590-c5f0-4334-8d03-8931318afa4b" />
+
+### Dashboard
+
+> 数据大屏：对话内选择「数据大屏」生成后，可全屏查看（`/dashboard/[id]`）、拖拽编辑布局并分享链接。截图待补充。
 
 ### Alert
 <img width="1280" height="720" alt="alert" src="https://github.com/user-attachments/assets/af0678de-bd12-4b87-9d57-3140180c8999" />

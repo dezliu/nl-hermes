@@ -1,14 +1,32 @@
 # 灵析敏捷看板
 
-> 最后更新：2026-07-05 10:30
+> 最后更新：2026-07-05 14:00
 
 ## 进行中
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| 大屏生成后全屏/编辑/分享/预览修复 | ✅ 已完成 | Gateway 代理 + share PATCH + preview 回退 |
+| — | — | — |
 
-## 本次交付（2026-07-05 · 大屏访问修复）
+## 本次交付（2026-07-05 · README 数据大屏说明）
+
+### 已完成
+
+- [x] **项目简介**：补充「全屏数据大屏（可分享、可编辑布局）」
+- [x] **后端服务**：gateway-api / report-service / orchestrator 大屏相关职责与路由
+- [x] **工作流**：dashboard 分支流程图与 AnalyzeReport / ComposeSpec / RenderArtifact 说明
+- [x] **前端**：web-user 数据大屏输出格式、DashboardViewer、全屏与编辑路由
+- [x] **共享包**：contracts `DashboardLayoutSpec`、report-mcp-adapter 大屏 MCP 工具
+- [x] **文档链接**：README 与 `docs/plans/README.md` 增加大屏设计 plan 索引
+- [x] **演示**：预留 Dashboard 小节（截图待补充）
+
+### 涉及文件
+
+- `README.md`
+- `docs/plans/README.md`
+- `docs/progress-board.md`（本看板）
+
+## 历史（2026-07-05 · 大屏访问修复）
 
 ### 已完成
 

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>近7天结算数据分析</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
+    .dashboard { position: relative; min-height: 100vh; padding: 16px; }
+    .dashboard.dark { background: linear-gradient(180deg, #0b1220 0%, #111827 100%); color: #e5e7eb; }
+    .dashboard.light { background: #f8fafc; color: #0f172a; }
+    .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 8px; }
+    .dash-header h1 { margin: 0; font-size: 28px; font-weight: 600; }
+    .dash-header .subtitle { opacity: 0.75; font-size: 14px; margin-top: 4px; }
+    .dash-clock { font-size: 14px; opacity: 0.8; }
+    .canvas { position: relative; min-height: calc(100vh - 72px); }
+    .panel { position: absolute; border-radius: 12px; padding: 12px 16px; overflow: hidden; }
+    .dashboard.dark .panel { background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(148, 163, 184, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+    .dashboard.light .panel { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06); }
+    .panel-title { font-size: 13px; opacity: 0.85; margin-bottom: 8px; }
+    .panel-text-body { font-size: 22px; font-weight: 600; }
+    .kpi-value { font-size: 36px; font-weight: 700; line-height: 1.2; color: #38bdf8; }
+    .chart-host { width: 100%; height: calc(100% - 28px); min-height: 120px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid rgba(148,163,184,0.2); }
+    th { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div class="dashboard dark">
+    <div class="dash-header">
+      <div>
+        <h1>近7天结算数据分析</h1>
+        
+      </div>
+      <div class="dash-clock" id="dash-clock"></div>
+    </div>
+    <div class="canvas">
+      <div class="panel panel-chart" style="left:0%;width:50%;top:0px;height:320px;"><div class="panel-title">每日总金额趋势</div><div id="panel-panel1" class="chart-host" data-chart-index="0"></div></div>
+<div class="panel panel-chart" style="left:50%;width:50%;top:0px;height:320px;"><div class="panel-title">每日结算数量趋势</div><div id="panel-panel2" class="chart-host" data-chart-index="1"></div></div>
+<div class="panel panel-chart" style="left:0%;width:50%;top:320px;height:320px;"><div class="panel-title">同比趋势</div><div id="panel-panel3" class="chart-host" data-chart-index="2"></div></div>
+<div class="panel panel-chart" style="left:50%;width:50%;top:320px;height:320px;"><div class="panel-title">环比趋势</div><div id="panel-panel4" class="chart-host" data-chart-index="3"></div></div>
+    </div>
+  </div>
+  <script>
+    (function(){const el=document.getElementById('panel-panel1');if(!el)return;const chart=echarts.init(el);chart.setOption({"title":{"text":"每日总金额趋势"},"tooltip":{"trigger":"axis"},"xAxis":{"type":"category","data":["2026-07-02T16:00:00.000Z"]},"yAxis":{"type":"value"},"series":[{"type":"line","name":"total_amount","data":[8.5],"smooth":true}]});window.addEventListener('resize',()=>chart.resize());})();
+(function(){const el=document.getElementById('panel-panel2');if(!el)return;const chart=echarts.init(el);chart.setOption({"title":{"text":"每日结算数量趋势"},"tooltip":{"trigger":"axis"},"xAxis":{"type":"category","data":["2026-07-02T16:00:00.000Z"]},"yAxis":{"type":"value"},"series":[{"type":"line","name":"cnt","data":[5],"smooth":true}]});window.addEventListener('resize',()=>chart.resize());})();
+(function(){const el=document.getElementById('panel-panel3');if(!el)return;const chart=echarts.init(el);chart.setOption({"title":{"text":"同比趋势"},"tooltip":{"trigger":"axis"},"xAxis":{"type":"category","data":["2026-07-02T16:00:00.000Z"]},"yAxis":{"type":"value"},"series":[{"type":"line","name":"total_amount","data":[8.5],"smooth":true}]});window.addEventListener('resize',()=>chart.resize());})();
+(function(){const el=document.getElementById('panel-panel4');if(!el)return;const chart=echarts.init(el);chart.setOption({"title":{"text":"环比趋势"},"tooltip":{"trigger":"axis"},"xAxis":{"type":"category","data":["2026-07-02T16:00:00.000Z"]},"yAxis":{"type":"value"},"series":[{"type":"line","name":"total_amount","data":[8.5],"smooth":true}]});window.addEventListener('resize',()=>chart.resize());})();
+    function tickClock(){const el=document.getElementById('dash-clock');if(el)el.textContent=new Date().toLocaleString('zh-CN');}tickClock();setInterval(tickClock,1000);
+    
+  </script>
+</body>
+</html>

@@ -20,6 +20,7 @@
 | [sql错误与llm排查_0a752c31.plan.md](./sql错误与llm排查_0a752c31.plan.md) | trade_date / gmt_create、流式思考展示 |
 | [sql生成失败与提速_653982b3.plan.md](./sql生成失败与提速_653982b3.plan.md) | datasourceId 贯通、RAG 提速 |
 | [报表生成扩展设计_2b63e494.plan.md](./报表生成扩展设计_2b63e494.plan.md) | ReportSpec、多格式输出（Web/Word） |
+| [大屏生成功能设计_09d40cc5.plan.md](./大屏生成功能设计_09d40cc5.plan.md) | 数据大屏：DashboardLayoutSpec、全屏渲染、布局编辑与 MCP 工具 |
 | [cursor_聊天导出脚本_b4890267.plan.md](./cursor_聊天导出脚本_b4890267.plan.md) | Cursor 会话导出 Markdown 脚本 |
 | [重启后端服务_0af0cb80.plan.md](./重启后端服务_0af0cb80.plan.md) | Docker / make dev 模式下服务重启指引 |
 
