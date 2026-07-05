@@ -119,8 +119,9 @@ export function DashboardViewer({ reportSpec, reportArtifact, compact = false }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: DEMO_USER_ID, expiresInDays: 7 }),
       });
-      if (!res.ok) throw new Error('分享失败');
-      const data = (await res.json()) as { shareUrl: string };
+      const data = (await res.json()) as { shareUrl?: string; message?: string; error?: string };
+      if (!res.ok) throw new Error(data.message ?? '分享失败');
+      if (!data.shareUrl) throw new Error('分享失败');
       await navigator.clipboard.writeText(data.shareUrl);
       message.success('分享链接已复制');
     } catch {

@@ -6,7 +6,7 @@ import type { ReportArtifact, ReportSpec } from '@hermes/contracts';
 import { DashboardViewer } from '../../../components/DashboardViewer';
 
 const GATEWAY_BASE = process.env.NEXT_PUBLIC_GRAPHQL_URL?.replace(/\/graphql$/, '') ?? 'http://localhost:4000';
-const REPORT_SERVICE = process.env.NEXT_PUBLIC_REPORT_SERVICE_URL ?? 'http://localhost:4030';
+const DEMO_USER_ID = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? 'demo-user';
 
 export default function DashboardPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
@@ -16,7 +16,9 @@ export default function DashboardPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${REPORT_SERVICE}/v1/reports/${params.id}`);
+        const res = await fetch(
+          `${GATEWAY_BASE}/api/reports/${params.id}?userId=${encodeURIComponent(DEMO_USER_ID)}`,
+        );
         if (!res.ok) throw new Error('加载失败');
         const data = (await res.json()) as { spec: ReportSpec; artifact: ReportArtifact };
         setSpec(data.spec);

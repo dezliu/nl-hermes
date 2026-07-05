@@ -1,14 +1,27 @@
 # 灵析敏捷看板
 
-> 最后更新：2026-07-04 23:55
+> 最后更新：2026-07-05 10:30
 
 ## 进行中
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| 大屏生成功能（dashboard） | ✅ 已完成 | LLM 布局 + 渲染 + 分享 + 简单编辑器全链路 |
+| 大屏生成后全屏/编辑/分享/预览修复 | ✅ 已完成 | Gateway 代理 + share PATCH + preview 回退 |
 
-## 本次交付（2026-07-04 · 数据大屏生成）
+## 本次交付（2026-07-05 · 大屏访问修复）
+
+### 已完成
+
+- [x] **根因定位**：全屏/编辑页直连 report-service 缺 `x-service-token` → 401；分享时 orchestrator `repo.save` 重复 INSERT → Duplicate entry
+- [x] **Gateway**：新增 `GET /api/reports/:id?userId=` 代理 orchestrator
+- [x] **前端**：`/dashboard/[id]` 与 `/dashboard/[id]/edit` 改走 Gateway
+- [x] **预览回退**：Gateway preview/download 在 report-service 内存未命中时，从 orchestrator 拉 spec 并 re-render
+
+### 待验证
+
+- [x] 全屏查看、编辑布局、分享链接、预览网页
+
+## 历史（2026-07-04 · 数据大屏生成）
 
 ### 已完成
 

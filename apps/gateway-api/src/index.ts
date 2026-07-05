@@ -126,67 +126,16 @@ const typeDefs = `#graphql
 
 async function orchPost<T>(path: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
   const url = `${ORCHESTRATOR_URL}${path}`;
-  // #region agent log
-  const authHeaders = withServiceAuth(headers, 'gateway-api');
-  fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006', {
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'be006e' },
-    body: JSON.stringify({
-      sessionId: 'be006e',
-      runId: 'orch-post',
-      hypothesisId: 'C',
-      location: 'gateway-api/index.ts:orchPost',
-      message: 'orchestrator request',
-      data: { url, hasServiceToken: Boolean(authHeaders['x-service-token']) },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    // #region agent log
-    fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'be006e' },
-      body: JSON.stringify({
-        sessionId: 'be006e',
-        runId: 'orch-post',
-        hypothesisId: 'A',
-        location: 'gateway-api/index.ts:orchPost-catch',
-        message: 'orchestrator fetch failed',
-        data: { url, error: err instanceof Error ? err.message : String(err) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-    throw err;
-  }
+    headers: {
+      'Content-Type': 'application/json',
+      ...withServiceAuth(headers, 'gateway-api'),
+    },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
     const text = await res.text();
-    // #region agent log
-    fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'be006e' },
-      body: JSON.stringify({
-        sessionId: 'be006e',
-        runId: 'orch-post',
-        hypothesisId: 'B',
-        location: 'gateway-api/index.ts:orchPost-error',
-        message: 'orchestrator non-ok response',
-        data: { url, status: res.status, body: text.slice(0, 200) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     throw new Error(text || `orchestrator ${res.status}`);
   }
   return res.json() as Promise<T>;
@@ -237,6 +186,44 @@ async function orchDelete<T>(path: string, body: unknown, headers: Record<string
     throw new Error(text || `orchestrator ${res.status}`);
   }
   return res.json() as Promise<T>;
+}
+
+function reportServiceHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { ...withServiceAuth(extra, 'gateway-api') };
+}
+
+async function fetchReportService(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${REPORT_SERVICE_URL}${path}`, {
+    ...init,
+    headers: reportServiceHeaders(init.headers as Record<string, string> | undefined),
+  });
+}
+
+/** Re-hydrate report-service memory from orchestrator when preview/download misses in-memory cache. */
+async function ensureReportRendered(reportId: string, userId?: string): Promise<boolean> {
+  const qs = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  const data = await orchGet<{ spec: Record<string, unknown> }>(`/v1/reports/${reportId}${qs}`);
+  const gatewayBase = process.env.GATEWAY_PUBLIC_URL ?? `http://localhost:${PORT}`;
+  const renderRes = await fetchReportService('/v1/reports/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spec: data.spec, gatewayBaseUrl: gatewayBase }),
+  });
+  return renderRes.ok;
+}
+
+async function fetchReportPreview(reportId: string, userId?: string): Promise<Response> {
+  let upstream = await fetchReportService(`/v1/reports/${reportId}/preview`);
+  if (upstream.ok) return upstream;
+
+  try {
+    if (await ensureReportRendered(reportId, userId)) {
+      upstream = await fetchReportService(`/v1/reports/${reportId}/preview`);
+    }
+  } catch {
+    // keep original failed response
+  }
+  return upstream;
 }
 
 const resolvers = {
@@ -303,25 +290,6 @@ async function main() {
 
   const corsMiddleware = browserCorsMiddleware();
 
-  // #region agent log
-  app.use('/graphql', (req, _res, next) => {
-    fetch('http://127.0.0.1:7876/ingest/a10af35d-fe0f-499b-a73b-d9b447f06006', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'be006e' },
-      body: JSON.stringify({
-        sessionId: 'be006e',
-        runId: 'cors-debug',
-        hypothesisId: 'B',
-        location: 'gateway-api/index.ts:graphql-entry',
-        message: 'graphql request received',
-        data: { method: req.method, origin: req.headers.origin ?? null, path: req.path },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    next();
-  });
-  // #endregion
-
   app.use(
     '/graphql',
     corsMiddleware,
@@ -364,10 +332,23 @@ async function main() {
 
   app.options('/api/chat/stream', corsMiddleware);
 
+  app.get('/api/reports/:id', corsMiddleware, async (req, res) => {
+    try {
+      const userId = String(req.query.userId ?? '');
+      const qs = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+      const data = await orchGet<{ spec: unknown; artifact: unknown }>(`/v1/reports/${req.params.id}${qs}`);
+      res.json(data);
+    } catch (err) {
+      res.status(404).json({
+        error: 'not_found',
+        message: err instanceof Error ? err.message : '报表不存在',
+      });
+    }
+  });
+
   app.get('/api/reports/:id/preview', corsMiddleware, async (req, res) => {
-    const upstream = await fetch(`${REPORT_SERVICE_URL}/v1/reports/${req.params.id}/preview`, {
-      headers: withServiceAuth({}, 'gateway-api'),
-    });
+    const userId = String(req.query.userId ?? '');
+    const upstream = await fetchReportPreview(req.params.id, userId || undefined);
     if (!upstream.ok) {
       res.status(upstream.status).json({ error: 'preview_failed' });
       return;
@@ -378,9 +359,17 @@ async function main() {
   });
 
   app.get('/api/reports/:id/download', corsMiddleware, async (req, res) => {
-    const upstream = await fetch(`${REPORT_SERVICE_URL}/v1/reports/${req.params.id}/download`, {
-      headers: withServiceAuth({}, 'gateway-api'),
-    });
+    const userId = String(req.query.userId ?? '');
+    let upstream = await fetchReportService(`/v1/reports/${req.params.id}/download`);
+    if (!upstream.ok) {
+      try {
+        if (await ensureReportRendered(req.params.id, userId || undefined)) {
+          upstream = await fetchReportService(`/v1/reports/${req.params.id}/download`);
+        }
+      } catch {
+        // keep original failed response
+      }
+    }
     if (!upstream.ok) {
       res.status(upstream.status).json({ error: 'download_failed' });
       return;

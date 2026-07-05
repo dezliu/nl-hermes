@@ -23,15 +23,14 @@ export function mountReportRoutes(app: Express, repo: ReportArtifactRepository):
         userId: String(req.body.userId ?? ''),
         expiresInDays: req.body.expiresInDays,
       });
-      const row = await repo.getById(req.params.id, String(req.body.userId ?? ''));
+      const userId = String(req.body.userId ?? '');
+      const row = await repo.getById(req.params.id, userId);
       if (row) {
-        await repo.save({
-          ...row,
-          artifact: {
-            ...row.artifact,
-            shareToken: result.shareToken,
-            shareExpiresAt: result.expiresAt,
-          },
+        await repo.updateShare({
+          id: req.params.id,
+          userId,
+          shareToken: result.shareToken,
+          shareExpiresAt: result.expiresAt,
         });
       }
       res.json(result);

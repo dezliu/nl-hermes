@@ -56,6 +56,34 @@ export class ReportArtifactRepository {
     };
   }
 
+  async updateShare(input: {
+    id: string;
+    userId: string;
+    shareToken: string;
+    shareExpiresAt: string;
+  }): Promise<boolean> {
+    const existing = await this.getById(input.id, input.userId);
+    if (!existing) return false;
+
+    const artifact: ReportArtifact = {
+      ...existing.artifact,
+      shareToken: input.shareToken,
+      shareExpiresAt: input.shareExpiresAt,
+    };
+
+    if (!this.enabled) {
+      this.memory.set(input.id, { ...existing, artifact });
+      return true;
+    }
+
+    await ReportArtifactModel.query().findById(input.id).patch({
+      shareToken: input.shareToken,
+      shareExpiresAt: input.shareExpiresAt.slice(0, 23).replace('T', ' '),
+      artifactJson: artifact as unknown as Record<string, unknown>,
+    });
+    return true;
+  }
+
   async updateLayout(input: {
     id: string;
     userId: string;
