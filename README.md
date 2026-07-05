@@ -414,6 +414,16 @@ docker/
 - [AI 协作规范](AGENTS.md)
 - [架构设计与迭代 Plan](docs/plans/README.md)
 
+## 演示
+### Admin
+<img width="1280" height="720" alt="admin" src="https://github.com/user-attachments/assets/8bdd239a-fdbf-4bfe-b5bc-057f59e22f52" />
+
+### User
+<img width="1280" height="720" alt="user" src="https://github.com/user-attachments/assets/32028590-c5f0-4334-8d03-8931318afa4b" />
+
+### Alert
+<img width="1280" height="720" alt="alert" src="https://github.com/user-attachments/assets/af0678de-bd12-4b87-9d57-3140180c8999" />
+
 ## License
 
 Private — All rights reserved.
